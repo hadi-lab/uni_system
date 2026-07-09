@@ -85,7 +85,7 @@ def entering():
         s_id=request.form['id']
         found=student.query.get(s_id)
         if found:    
-            return redirect(url_for('registering',s_id=s_id))
+            return redirect(url_for('options',s_id=s_id))
         else:
             return redirect(url_for('enter_page',error='notfound'))
 @app.route('/enter')
@@ -149,6 +149,10 @@ def addexam():
     return render_template('backdoor.html')
 
 
+@app.route('/options/<int:s_id>')
+def options(s_id):
+    return render_template('options.html', s_id=s_id)
+
 
 @app.route('/registering/<int:s_id>',methods=['GET'])
 def registering(s_id):
@@ -164,8 +168,9 @@ def dashboard(s_id):
     course_codes=[r.course_code for r in registered.query.filter_by(student_id=s_id).all()]
     student_exams= exams.query.filter(exams.course_code.in_(course_codes)).all()
     student_assignments=assignments.query.filter(assignments.course_code.in_(course_codes)).all()
-    all_items=[{'type':'exam','name':e.name,'date':e.date,'grade':e.grade,'course':e.course_code} for e in student_exams]
-    all_items+=[{'type':'assignment','name':e.name,'date':e.date,'grade':e.grade,'course':e.course_code} for e in student_assignments]
+    course_lookup = {c.code: c.name for c in courses.query.filter(courses.code.in_(course_codes)).all()}
+    all_items=[{'type':'exam','name':e.name,'date':e.date,'grade':e.grade,'course':course_lookup[e.course_code]} for e in student_exams]
+    all_items+=[{'type':'assignment','name':e.name,'date':e.date,'grade':e.grade,'course':course_lookup[e.course_code]} for e in student_assignments]
     all_items.sort(key= lambda x: x['date'])
     upcoming_exams=[i for i in all_items if i['type']=='exam' and  i['grade'] is None]
     upcoming_assignments=[i for i in all_items if i['type']=='assignment' and  i['grade'] is None]
