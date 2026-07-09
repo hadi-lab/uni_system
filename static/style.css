@@ -1,0 +1,8 @@
+.row {
+    display: flex;
+    gap: 30px;
+}
+
+.row > div {
+    flex: 1;
+}

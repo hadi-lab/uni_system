@@ -27,41 +27,17 @@ class exams(db.Model):
     exam_id=db.Column(db.Integer,primary_key=True)
     course_code = db.Column(db.Integer, db.ForeignKey('courses.code'),nullable=False)
     date=db.Column(db.Date,nullable=False)
+    name = db.Column(db.String(200))
     grade=db.Column(db.Integer,nullable=True)
 class assignments(db.Model):
     assignment_id=db.Column(db.Integer,primary_key=True)
     course_code = db.Column(db.Integer, db.ForeignKey('courses.code'),nullable=False)
+    name = db.Column(db.String(200))
     date = db.Column(db.Date, nullable=False)
     grade=db.Column(db.Integer,nullable=True)
-@app.route('/',methods=['GET','POST'])
+@app.route('/')
 def index():
-    success=False
-    if request.method == 'POST':
-        
-    
-        register=request.form['register']
-        Course=request.form['course']
-        if register=='course':
-            new_task=courses(code=Course)
-            success=True
-        if register=='assignment':
-            success=True
-            task_date=request.form['deadline']
-            task_content=request.form['content']
-            new_task=assignments(assignment_id=task_content,course_code=Course,date=task_date)
-        if register=='exam':
-            success=True
-            task_content=request.form['content']
-            task_date=request.form['deadline']
-            new_task=exams(exam_id=task_content,course_code=Course,date=task_date)
-        if success :
-            db.session.add(new_task)
-            db.session.commit()
-            return redirect('/')
-        else:
-            return 'there was an error'
-    else:
-        return render_template('frontpage.html')
+    return render_template('frontpage.html')
 
 def staff_required(f):
     @wraps(f)
@@ -142,9 +118,10 @@ def addassignment():
     if request.method=='POST':
         course_id=request.form['coursecode']
         assignment_id=request.form['assignmentid']
+        assignment_name=request.form['name']
         date=request.form['date']
         date_obj = datetime.strptime(date, '%Y-%m-%d').date()
-        newassignment=assignments(course_code=course_id,assignment_id=assignment_id,date=date_obj)
+        newassignment=assignments(course_code=course_id,assignment_id=assignment_id,date=date_obj,name=assignment_name)
         try:
             db.session.add(newassignment)
             db.session.commit()
@@ -159,9 +136,10 @@ def addexam():
     if request.method=='POST':
         course_id=request.form['coursecode']
         exam_id=request.form['examid']
+        exam_name=request.form['name']
         date=request.form['date']
         date_obj = datetime.strptime(date, '%Y-%m-%d').date()
-        newexam=exams(course_code=course_id,exam_id=exam_id,date=date_obj)
+        newexam=exams(course_code=course_id,name=exam_name,exam_id=exam_id,date=date_obj)
         try:
             db.session.add(newexam)
             db.session.commit()
@@ -181,7 +159,19 @@ def registering(s_id):
     except:
         return 'error'
 
-
+@app.route('/dashboard/<int:s_id>')
+def dashboard(s_id):
+    course_codes=[r.course_code for r in registered.query.filter_by(student_id=s_id).all()]
+    student_exams= exams.query.filter(exams.course_code.in_(course_codes)).all()
+    student_assignments=assignments.query.filter(assignments.course_code.in_(course_codes)).all()
+    all_items=[{'type':'exam','name':e.name,'date':e.date,'grade':e.grade,'course':e.course_code} for e in student_exams]
+    all_items+=[{'type':'assignment','name':e.name,'date':e.date,'grade':e.grade,'course':e.course_code} for e in student_assignments]
+    all_items.sort(key= lambda x: x['date'])
+    upcoming_exams=[i for i in all_items if i['type']=='exam' and  i['grade'] is None]
+    upcoming_assignments=[i for i in all_items if i['type']=='assignment' and  i['grade'] is None]
+    graded_exams=[i for i in all_items if i['type']=='exam' and  i['grade'] is not None]
+    graded_assignments=[i for i in all_items if i['type']=='assignment' and i['grade'] is not None]
+    return render_template('dashboard.html',upcoming_exams=upcoming_exams,upcoming_assignments=upcoming_assignments,graded_assignments=graded_assignments,graded_exams=graded_exams,s_id=s_id)
 
 @app.route('/registercourse/<int:s_id>/<int:coursecode>',methods=['POST'])
 def courseregister(s_id,coursecode):
