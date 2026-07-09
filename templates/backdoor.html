@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="stylesheet" href="{{ url_for('static',filename='styles.css') }}">
+    <title>Document</title>
+</head>
+<body>
+    {% if added == 'course' %}
+        <h1>Course added successfully ✓</h1>
+    {% endif %}
+    {% if added == 'assignment' %}
+        <h1>assignment added successfully ✓</h1>
+    {% endif %}
+    {% if added == 'exam' %}
+        <h1>exam added successfully ✓</h1>
+    {% endif %}
+    
+    <button type="submit" value="courseform" onclick="showform(this.value)">add course</button>
+    <button type="submit" value="assignmentform" onclick="showform(this.value)">add assignment</button>
+    <button type="submit" value="examform" onclick="showform(this.value)">add exam</button>
+
+
+    <div id="courseform" style="display: none;">
+        <form action="/addcourse" method="post">
+            <input type="text" name="coursecode" id="coursecode">coursecode
+            <input type="text" name="coursename" id="coursename">coursename
+            <input type="submit" value="submit">
+        </form>
+    </div>
+    <div id="assignmentform" style="display: none;" name="assignment">
+        <form action="/addassignment" method="post"> 
+            <label for="">coursecode</label><input type="text" name="coursecode" id="coursecode">
+            <label for="">assi_id</label><input type="text" name="assignmentid" id="assignmentid">
+            <label for="">date</label><input type="text" name="date" id="date">
+            <input type="submit" value="submit">
+
+        </form>
+    </div>
+    <div id="examform" style="display: none;">
+        <form action="/addexam" method="post">
+            <label for="">coursecode</label><input type="text" name="coursecode" id="coursecode">
+            <label for="">exam_id</label><input type="text" name="examid" id="examid">
+            <label for="">date</label><input type="text" name="date" id="date">
+            <input type="submit" value="submit">
+        </form>
+    </div>
+    
+    
+    <script>
+        function showform(type){
+            document.getElementById("courseform").style.display = "none";
+            document.getElementById("assignmentform").style.display = "none";
+            document.getElementById("examform").style.display = "none";
+            document.getElementById(type ).style.display = "block";
+        }
+        
+    </script>
+    
+    
+    
+
+</body>
+</html>

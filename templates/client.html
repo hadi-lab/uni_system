@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Document</title>
+</head>
+<body>
+    <table>
+        <tr>
+            <th>coursename</th>
+            <th>courseCode</th>
+            <th>enroll</th>
+        </tr>
+        {% for course in courses %}
+        <tr>
+            <td>{{ course.name }}</td>
+            <td>{{ course.code }}</td>
+            <td>
+                {% if course.code in registered_codes %}
+                    registered ✓
+                {% else %}
+                    <button onclick="courseregister('{{ course.code }}','{{ s_id }}',this)">register</button>
+                {% endif %}
+
+            </td>
+        </tr>
+        {% endfor %}
+    </table>
+    <script>
+        function courseregister(coursecode,s_id,buttonelement){
+            fetch(`/registercourse/${s_id}/${coursecode}`,{method:'POST'} )
+            .then(response => response.text())
+            .then(data => {
+                if (data ==='success'){
+                    buttonelement.innerText="Registered ✓ ";
+                    buttonelement.disabled=true;
+                }
+                else if(data == 'already registered'){
+                    alert('already registered');
+
+                }
+                else{
+                    alert('registration failed');
+                }
+            }
+            )
+        }
+
+    </script>
+</body>
+</html>

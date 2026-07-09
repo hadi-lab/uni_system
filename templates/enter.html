@@ -1,0 +1,21 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Document</title>
+</head>
+<body>
+    
+    {% block body %}
+    {% endblock %}
+    {% if error == 'notfound' %}
+    <h3>id not found,register or try again.</h3>
+    {% endif %}
+    <form action="/entering" method="post">
+        <label for="">enter ur id:</label><input type="text" name="id" id="id">
+        <input type="submit" value="enter">
+    </form>
+    <p>New here? <a href="/newstudentpage">Register as a new student</a></p>
+</body>
+</html>

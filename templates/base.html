@@ -1,0 +1,27 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="stylesheet" href="{{ url_for('static',filename='styles.css') }}">
+    <title>Document</title>
+</head>
+<body>
+    {% block body %}
+    {% endblock %}
+    {% block form_section %}
+    <a href="/backdoor">backdoor</a>
+    <h2>new student? register here</h2>
+    <form action="/newstudent" method="post">
+        <label for="">name:</label><input type="text" id="name" name="name">
+        <input type="submit" value="register" >
+    </form>
+    {% endblock %}
+    <h2>enroll in ur courses:</h2>
+    <a href="/enter">
+        <h3>apply</h3>
+
+    </a>
+
+</body>
+</html>
