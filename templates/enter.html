@@ -9,8 +9,8 @@
     
     {% block body %}
     {% endblock %}
-    {% if error == 'notfound' %}
-    <h3>id not found,register or try again.</h3>
+    {% if error == 'invalid credentials' %}
+    <h5>invalid credentials.</h5>
     {% endif %}
     <form action="/login" method="post">
 

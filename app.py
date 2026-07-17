@@ -16,7 +16,8 @@ app.config['SQLALCHEMY_DATABASE_URI']='sqlite:///test.db'
 db = SQLAlchemy(app)
 class student(db.Model):
     id=db.Column(db.Integer,primary_key=True)
-    name=db.Column(db.String(200))
+    fname=db.Column(db.String(200))
+    lname=db.Column(db.String(200))
     email = db.Column(db.String(200), unique=True, nullable=False)
     password_hash = db.Column(db.String(255), nullable=False)
 class courses(db.Model):
@@ -38,6 +39,14 @@ class assignments(db.Model):
     name = db.Column(db.String(200))
     date = db.Column(db.Date, nullable=False)
     grade=db.Column(db.Integer,nullable=True)
+    
+class program(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    name = db.Column(db.String(200))   # "Biology", "Physics"
+
+class program_courses(db.Model):     # which courses a program allows
+    program_id = db.Column(db.Integer, db.ForeignKey('program.id'), primary_key=True)
+    course_code = db.Column(db.Integer, db.ForeignKey('courses.code'), primary_key=True)
 
 @app.route('/login',methods=['GET','POST'])
 def login():
@@ -45,9 +54,15 @@ def login():
         found=student.query.filter_by(email=request.form['email']).first()
         if found and check_password_hash(found.password_hash,request.form['password']):
             session['student_id']=found.id
-            return redirect(url_for('options'),s_id=found.id)
+            return redirect(url_for('options'))
         return render_template('enter.html',error='invalid credentials')
     return render_template('enter.html')
+        
+
+@app.route('/logout')
+def logout():
+    session.clear()
+    return redirect(url_for('login'))
         
 @app.route('/')
 def index():
@@ -56,7 +71,7 @@ def index():
 def student_required(f):
     @wraps(f)
     def decorated(*args,**kwargs):
-        if not session.get['student_id']:
+        if not session.get('student_id'):
             return redirect(url_for('login'))
         return f(*args,**kwargs)
     return decorated
@@ -77,19 +92,26 @@ def newstudentpage():
 @app.route("/newstudent",methods=['GET','POST'])
 def register():
     if request.method=='POST':
+        student_fname = request.form.get('fname','').strip()
+        student_lname = request.form.get('lname','').strip()
+        student_email = request.form.get('email','').strip().lower()
+        password = request.form.get('password','')
+        if not student_fname or not student_email or not password:
+            return render_template('newstudentpage.html', error='all fields required')
         
-        student_name=request.form['name']
-        student_email=request.form['email']
-        student_pass=generate_password_hash(request.form['password'])
-        new_student=student(name=student_name,email=student_email,password_hash=student_pass)
+        student_pass=generate_password_hash(password)
+        new_student=student(fname=student_fname,lname=student_lname,email=student_email,password_hash=student_pass)
         try:
             db.session.add(new_student)
             db.session.commit()
-
             return redirect(url_for('success',new_id=new_student.id))
+        except IntegrityError:
+            db.session.rollback()
+            return render_template('newstudentpage.html', error='email already registered')
         except:
+            db.session.rollback()
             return 'error adding student'
-    return render_template('enter.html')
+    return render_template('newstudentpage.html')
 
 
 
@@ -104,12 +126,7 @@ def success():
 def backdoor():
     added=request.args.get('added')
     return render_template('backdoor.html',added=added)
-
-
-@app.route('/enter')
-def enter_page():
-    error=request.args.get('error')
-    return render_template('enter.html',error=error)    
+   
 
 
 @app.route('/addcourse',methods=['GET','POST'])
@@ -167,15 +184,17 @@ def addexam():
     return render_template('backdoor.html')
 
 
-@app.route('/options/<int:s_id>')
+@app.route('/options')
 @student_required
-def options(s_id):
+def options():
+    s_id=session.get('student_id')
     return render_template('options.html', s_id=s_id)
 
 
-@app.route('/registering/<int:s_id>',methods=['GET'])
+@app.route('/registering',methods=['GET'])
 @student_required
-def registering(s_id):
+def registering():
+    s_id=session.get('student_id')
     try:
         all_courses=courses.query.all()
         registered_codes=[r.course_code for r in registered.query.filter_by(student_id=s_id).all()]
@@ -200,8 +219,10 @@ def dashboard():
     graded_assignments=[i for i in all_items if i['type']=='assignment' and i['grade'] is not None]
     return render_template('dashboard.html',upcoming_exams=upcoming_exams,upcoming_assignments=upcoming_assignments,graded_assignments=graded_assignments,graded_exams=graded_exams,s_id=s_id)
 
-@app.route('/registercourse/<int:s_id>/<int:coursecode>',methods=['POST'])
-def courseregister(s_id,coursecode):
+@app.route('/registercourse/<int:coursecode>',methods=['POST'])
+@student_required
+def courseregister(coursecode):
+    s_id=session.get('student_id')
     existing=registered.query.filter_by(student_id=s_id,course_code=coursecode).first()
     if existing:
         return 'already registered'
@@ -213,6 +234,8 @@ def courseregister(s_id,coursecode):
     except Exception as e:
         print(e)
         return 'error'
+    
+
 @app.route('/staff-login',methods=['GET','POST'])
 def staff_login():
     if session.get('is_staff'):
