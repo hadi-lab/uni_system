@@ -12,8 +12,11 @@
     {% if error == 'notfound' %}
     <h3>id not found,register or try again.</h3>
     {% endif %}
-    <form action="/entering" method="post">
-        <label for="">enter ur id:</label><input type="text" name="id" id="id">
+    <form action="/login" method="post">
+
+        <label for="">enter ur email:</label><input type="email" name="email" id="email">
+        <label for="">enter ur password:</label><input type="password" name="password" id="password">
+        
         <input type="submit" value="enter">
     </form>
     <p>New here? <a href="/newstudentpage">Register as a new student</a></p>

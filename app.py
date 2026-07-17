@@ -1,8 +1,9 @@
 from flask import Flask,url_for,request,redirect,render_template,session
 from flask_sqlalchemy import SQLAlchemy
 from datetime import datetime,timezone
-from werkzeug.security import check_password_hash
+from werkzeug.security import generate_password_hash,check_password_hash
 from dotenv import load_dotenv
+from sqlalchemy.exc import IntegrityError
 from functools import wraps
 import os
 
@@ -16,6 +17,8 @@ db = SQLAlchemy(app)
 class student(db.Model):
     id=db.Column(db.Integer,primary_key=True)
     name=db.Column(db.String(200))
+    email = db.Column(db.String(200), unique=True, nullable=False)
+    password_hash = db.Column(db.String(255), nullable=False)
 class courses(db.Model):
     code=db.Column(db.Integer,primary_key=True)
     name = db.Column(db.String(200))   
@@ -35,9 +38,28 @@ class assignments(db.Model):
     name = db.Column(db.String(200))
     date = db.Column(db.Date, nullable=False)
     grade=db.Column(db.Integer,nullable=True)
+
+@app.route('/login',methods=['GET','POST'])
+def login():
+    if request.method=='POST':
+        found=student.query.filter_by(email=request.form['email']).first()
+        if found and check_password_hash(found.password_hash,request.form['password']):
+            session['student_id']=found.id
+            return redirect(url_for('options'),s_id=found.id)
+        return render_template('enter.html',error='invalid credentials')
+    return render_template('enter.html')
+        
 @app.route('/')
 def index():
     return render_template('frontpage.html')
+
+def student_required(f):
+    @wraps(f)
+    def decorated(*args,**kwargs):
+        if not session.get['student_id']:
+            return redirect(url_for('login'))
+        return f(*args,**kwargs)
+    return decorated
 
 def staff_required(f):
     @wraps(f)
@@ -46,6 +68,8 @@ def staff_required(f):
             return redirect(url_for('staff_login'))
         return f(*args, **kwargs)
     return decorated
+
+
 @app.route('/newstudentpage')
 def newstudentpage():
     return render_template('newstudentpage.html')
@@ -55,7 +79,9 @@ def register():
     if request.method=='POST':
         
         student_name=request.form['name']
-        new_student=student(name=student_name)
+        student_email=request.form['email']
+        student_pass=generate_password_hash(request.form['password'])
+        new_student=student(name=student_name,email=student_email,password_hash=student_pass)
         try:
             db.session.add(new_student)
             db.session.commit()
@@ -79,15 +105,7 @@ def backdoor():
     added=request.args.get('added')
     return render_template('backdoor.html',added=added)
 
-@app.route('/entering',methods=['POST'])
-def entering():
-    if request.method=='POST':
-        s_id=request.form['id']
-        found=student.query.get(s_id)
-        if found:    
-            return redirect(url_for('options',s_id=s_id))
-        else:
-            return redirect(url_for('enter_page',error='notfound'))
+
 @app.route('/enter')
 def enter_page():
     error=request.args.get('error')
@@ -150,11 +168,13 @@ def addexam():
 
 
 @app.route('/options/<int:s_id>')
+@student_required
 def options(s_id):
     return render_template('options.html', s_id=s_id)
 
 
 @app.route('/registering/<int:s_id>',methods=['GET'])
+@student_required
 def registering(s_id):
     try:
         all_courses=courses.query.all()
@@ -163,8 +183,10 @@ def registering(s_id):
     except:
         return 'error'
 
-@app.route('/dashboard/<int:s_id>')
-def dashboard(s_id):
+@app.route('/dashboard')
+@student_required
+def dashboard():
+    s_id=session.get('student_id')
     course_codes=[r.course_code for r in registered.query.filter_by(student_id=s_id).all()]
     student_exams= exams.query.filter(exams.course_code.in_(course_codes)).all()
     student_assignments=assignments.query.filter(assignments.course_code.in_(course_codes)).all()
