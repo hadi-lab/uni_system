@@ -27,19 +27,18 @@ class courses(db.Model):
 class registered(db.Model):
     student_id = db.Column(db.Integer, db.ForeignKey('student.id'), primary_key=True)
     course_code = db.Column(db.Integer, db.ForeignKey('courses.code'), primary_key=True)
+    grade = db.Column(db.Integer, nullable=True)
     
 class exams(db.Model):
     exam_id=db.Column(db.Integer,primary_key=True)
     course_code = db.Column(db.Integer, db.ForeignKey('courses.code'),nullable=False)
     date=db.Column(db.Date,nullable=False)
     name = db.Column(db.String(200))
-    grade=db.Column(db.Integer,nullable=True)
 class assignments(db.Model):
     assignment_id=db.Column(db.Integer,primary_key=True)
     course_code = db.Column(db.Integer, db.ForeignKey('courses.code'),nullable=False)
     name = db.Column(db.String(200))
     date = db.Column(db.Date, nullable=False)
-    grade=db.Column(db.Integer,nullable=True)
     
 class program(db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -49,6 +48,15 @@ class program_courses(db.Model):
     program_id = db.Column(db.Integer, db.ForeignKey('program.id'), primary_key=True)
     course_code = db.Column(db.Integer, db.ForeignKey('courses.code'), primary_key=True)
 
+class exam_grades(db.Model):
+    student_id = db.Column(db.Integer, db.ForeignKey('student.id'), primary_key=True)
+    exam_id = db.Column(db.Integer, db.ForeignKey('exams.exam_id'), primary_key=True)
+    grade = db.Column(db.Integer)
+
+class assignment_grades(db.Model):
+    student_id = db.Column(db.Integer, db.ForeignKey('student.id'), primary_key=True)
+    assignment_id = db.Column(db.Integer, db.ForeignKey('assignments.assignment_id'), primary_key=True)
+    grade = db.Column(db.Integer)
 @app.route('/login',methods=['GET','POST'])
 def login():
     if request.method=='POST':
@@ -223,8 +231,12 @@ def dashboard():
     student_exams= exams.query.filter(exams.course_code.in_(course_codes)).all()
     student_assignments=assignments.query.filter(assignments.course_code.in_(course_codes)).all()
     course_lookup = {c.code: c.name for c in courses.query.filter(courses.code.in_(course_codes)).all()}
-    all_items=[{'type':'exam','name':e.name,'date':e.date,'grade':e.grade,'course':course_lookup[e.course_code]} for e in student_exams]
-    all_items+=[{'type':'assignment','name':e.name,'date':e.date,'grade':e.grade,'course':course_lookup[e.course_code]} for e in student_assignments]
+    exam_grade_lookup = {g.exam_id: g.grade for g in exam_grades.query.filter_by(student_id=s_id).all()}
+    assign_grade_lookup = {g.assignment_id: g.grade for g in assignment_grades.query.filter_by(student_id=s_id).all()}
+
+
+    all_items=[{'type':'exam','name':e.name,'date':e.date,'grade':exam_grade_lookup.get(e.exam_id),'course':course_lookup[e.course_code]} for e in student_exams]
+    all_items+=[{'type':'assignment','name':e.name,'date':e.date,'grade':assign_grade_lookup.get(e.assignment_id),'course':course_lookup[e.course_code]} for e in student_assignments]
     all_items.sort(key= lambda x: x['date'])
     upcoming_exams=[i for i in all_items if i['type']=='exam' and  i['grade'] is None]
     upcoming_assignments=[i for i in all_items if i['type']=='assignment' and  i['grade'] is None]
