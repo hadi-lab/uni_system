@@ -20,10 +20,11 @@ class student(db.Model):
     lname=db.Column(db.String(200))
     email = db.Column(db.String(200), unique=True, nullable=False)
     password_hash = db.Column(db.String(255), nullable=False)
-    program_id=db.Column(db.string(255), db.ForeignKey('program.id'))
+    program_id=db.Column(db.String(255), db.ForeignKey('program.id'))
 class courses(db.Model):
     code=db.Column(db.Integer,primary_key=True)
     name = db.Column(db.String(200))   
+    capacity = db.Column(db.Integer, nullable=True)
 class registered(db.Model):
     student_id = db.Column(db.Integer, db.ForeignKey('student.id'), primary_key=True)
     course_code = db.Column(db.Integer, db.ForeignKey('courses.code'), primary_key=True)
@@ -57,6 +58,43 @@ class assignment_grades(db.Model):
     student_id = db.Column(db.Integer, db.ForeignKey('student.id'), primary_key=True)
     assignment_id = db.Column(db.Integer, db.ForeignKey('assignments.assignment_id'), primary_key=True)
     grade = db.Column(db.Integer)
+
+def in_program(s_id, coursecode):
+    me = student.query.get(s_id)
+    return program_courses.query.filter_by(program_id=me.program_id, course_code=coursecode).first() is not None
+
+def already_registered(s_id, coursecode):
+    return registered.query.filter_by(student_id=s_id, course_code=coursecode).first() is not None
+
+def has_capacity(coursecode):
+    course = courses.query.get(coursecode)
+    if course.capacity is None:
+        return True
+    return registered.query.filter_by(course_code=coursecode).count() < course.capacity
+def compute_course_results(s_id,coursecode):
+    course_exams=exams.query.filter_by(course_code=coursecode).all()
+    course_assignments=assignments.query.filter_by(course_code=coursecode).all()
+    exam_grade_map={e.exam_id:e.grade for e in exam_grades.query.filter_by(student_id=s_id).all()}
+    assignment_grade_map={a.assignment_id:a.grade for a in assignment_grades.query.filter_by(student_id=s_id).all()}
+    grades=[]
+    for e in course_exams:
+        g=exam_grade_map.get(e.exam_id)
+        if g is None:
+            return
+        grades.append(g)
+    for a in course_assignments:
+        g=assignment_grade_map.get(a.assignment_id)
+        if g is None:
+            return
+        grades.append(g)
+    if not grades:
+        return
+    result=sum(grades)/len(grades)
+    row=registered.query.filter_by(student_id=s_id,course_code=coursecode).first()
+    if row:
+        row.grade=result
+    
+
 @app.route('/login',methods=['GET','POST'])
 def login():
     if request.method=='POST':
@@ -96,7 +134,7 @@ def staff_required(f):
 
 @app.route('/newstudentpage')
 def newstudentpage():
-    programs=programs.query.all()
+    programs=program.query.all()
     return render_template('newstudentpage.html',programs=programs)
 
 @app.route("/newstudent",methods=['GET','POST'])
@@ -131,14 +169,75 @@ def success():
     new_id=request.args.get('new_id')
     return render_template('success.html',new_id=new_id)
 
+@app.route('/staff_entry',methods=['GET','POST'])
+@staff_required
+def staff_entry():
+    return render_template('staff_entry.html')
 
 @app.route('/backdoor')
 @staff_required
 def backdoor():
     added=request.args.get('added')
     programs=program.query.all()
-    return render_template('backdoor.html',added=added,programs=programs)
-   
+    all_courses = courses.query.all()
+    return render_template('backdoor.html',added=added,programs=programs,courses=all_courses)
+
+@app.route('/gradingpage', methods=['GET',"POST"])
+@staff_required
+def gradingpage():
+    all_courses=courses.query.all()
+    chosen=request.values.get('course_code')
+    roster=None
+    item=None
+    items_exams=None
+    items_assignments=None
+    if chosen:
+        student_ids=[r.student_id for r in registered.query.filter_by(course_code=chosen).all()]
+        roster=student.query.filter(student.id.in_(student_ids)).all()
+        items_exams=exams.query.filter_by(course_code=chosen).all()
+        items_assignments=assignments.query.filter_by(course_code=chosen).all()
+    return render_template('gradingpage.html', courses=all_courses, chosen=chosen,roster=roster, items_exams=items_exams, items_assignments=items_assignments)
+@app.route('/gradeitem',methods=['POST'])
+@staff_required
+def grade_item():
+    item=request.form.get('item','')
+    if ':' not in item:
+        return 'invalid item', 400
+    kind,item_id=item.split(':')
+    if kind == 'exam':
+        course_code = exams.query.get(item_id).course_code
+    else:
+        course_code = assignments.query.get(item_id).course_code
+    for key,value in request.form.items():
+        if key.startswith('grade_') and value:
+            s_id=int(key[6:])
+            if kind== 'exam':
+                record=exam_grades.query.filter_by(exam_id=item_id,student_id=s_id).first()
+                if record:
+                    record.grade=value
+                else:
+                    new_record=exam_grades(student_id=s_id,exam_id=item_id,grade=value)
+                    db.session.add(new_record)
+            elif kind=='assignment':
+                record=assignment_grades.query.filter_by(assignment_id=item_id,student_id=s_id).first()
+                if record:
+                    record.grade=value
+                else:
+                    new_record=assignment_grades(student_id=s_id,assignment_id=item_id,grade=value)
+                    db.session.add(new_record)
+    db.session.flush()
+    for key, value in request.form.items():
+        if key.startswith('grade_') and value:
+            s_id = int(key[6:])
+            compute_course_results(s_id,course_code)
+    try:
+        db.session.commit()
+        return redirect(url_for('gradingpage'))
+    except Exception:
+        db.session.rollback()
+        return 'error saving grades'
+
+
 
 
 @app.route('/addcourse',methods=['GET','POST'])
@@ -151,25 +250,27 @@ def addcourse():
             return render_template('backdoor.html', error='invalid program',programs=program.query.all())
         course_id=request.form['coursecode']
         course_name=request.form['coursename']
+        capacity=request.form.get('capacity') or None
 
         course_program=program_courses(program_id=program_id,course_code=course_id)
-        addedcourse=courses(code=course_id,name=course_name)
+        addedcourse=courses(code=course_id,name=course_name,capacity=capacity)
         try:
-            db.session.add(course_program)
             db.session.add(addedcourse)
+            db.session.add(course_program)
             db.session.commit()
             return redirect(url_for('backdoor', added='course'))
         except  Exception:
             db.session.rollback()
-            return render_template('backdoor.html', error='error adding course', programs=program.query.all())
+            return render_template('backdoor.html', error='error adding course',programs=program.query.all(),courses=courses.query.all())
 
-    return render_template('backdoor.html',programs=program.query.all())
+    return render_template('backdoor.html',programs=program.query.all(),courses=courses.query.all())
 
 
 
 @app.route('/addassignment',methods=['GET','POST'])
 @staff_required
 def addassignment():
+    
     if request.method=='POST':
         course_id=request.form['coursecode']
         assignment_id=request.form['assignmentid']
@@ -177,13 +278,16 @@ def addassignment():
         date=request.form['date']
         date_obj = datetime.strptime(date, '%Y-%m-%d').date()
         newassignment=assignments(course_code=course_id,assignment_id=assignment_id,date=date_obj,name=assignment_name)
+        if not courses.query.get(course_id):
+            return render_template('backdoor.html',error='invalid course',programs=program.query.all(),courses=courses.query.all())
         try:
             db.session.add(newassignment)
             db.session.commit()
             return redirect(url_for('backdoor', added='assignment'))
         except:
+            db.session.rollback()
             return 'error'
-    return render_template('backdoor.html')
+    return render_template('backdoor.html',programs=program.query.all(),courses=courses.query.all())
 
 @app.route('/addexam',methods=['GET','POST'])
 @staff_required
@@ -195,14 +299,29 @@ def addexam():
         date=request.form['date']
         date_obj = datetime.strptime(date, '%Y-%m-%d').date()
         newexam=exams(course_code=course_id,name=exam_name,exam_id=exam_id,date=date_obj)
+        if not courses.query.get(course_id):
+            return render_template('backdoor.html',error='invalid course',programs=program.query.all(),courses=courses.query.all())
         try:
             db.session.add(newexam)
             db.session.commit()
             return redirect(url_for('backdoor', added='exam'))
         except:
+            db.session.rollback()
             return 'error'
-    return render_template('backdoor.html')
-
+    return render_template('backdoor.html',programs=program.query.all(),courses=courses.query.all())
+@app.route('/addprogram',methods=['GET','POST'])
+def addprogram():
+    if request.method=='POST':
+        name=request.form['name']
+        id=request.form['programid']
+        new=program(id=id,name=name)
+        try:
+            db.session.add(new)
+            db.session.commit()
+            return redirect(url_for('backdoor',added='program'))
+        except Exception:
+            return 'error'
+    return render_template('backdoor.html',programs=program.query.all(),courses=courses.query.all())
 
 @app.route('/options')
 @student_required
@@ -248,13 +367,12 @@ def dashboard():
 @student_required
 def courseregister(coursecode):
     s_id=session.get('student_id')
-    me=student.query.get(s_id)
-    allowed=program_courses.query.filter_by(program_id=me.program_id,course_code=coursecode).first()
-    existing=registered.query.filter_by(student_id=s_id,course_code=coursecode).first()
-    if not allowed:
+    if not in_program(s_id,coursecode):
         return 'not in ur program', 403
-    if existing:    
+    if already_registered(s_id,coursecode):    
         return 'already registered'
+    if not has_capacity(coursecode):
+        return 'course full',403
     new_register=registered(student_id=s_id,course_code=coursecode)
     try:
         db.session.add(new_register)
@@ -263,17 +381,18 @@ def courseregister(coursecode):
     except Exception as e:
         print(e)
         return 'error'
-    
+
+
 
 @app.route('/staff-login',methods=['GET','POST'])
 def staff_login():
     if session.get('is_staff'):
-        return redirect(url_for('backdoor'))
+        return redirect(url_for('staff_entry'))
     if request.method=='POST':    
         entered=request.form['password']
         if check_password_hash(STAFF_PASSWORD_HASH,entered):
             session['is_staff']=True
-            return redirect(url_for('backdoor'))
+            return redirect(url_for('staff_entry'))
         else:
             return render_template('staff-login.html', error='wrong password')
     return render_template('staff-login.html')

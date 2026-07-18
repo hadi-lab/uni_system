@@ -13,6 +13,9 @@
     {% if added == 'course' %}
         <h1>Course added successfully ✓</h1>
     {% endif %}
+    {% if added == 'program' %}
+        <h1>program added successfully ✓</h1>
+    {% endif %}
     {% if added == 'assignment' %}
         <h1>assignment added successfully ✓</h1>
     {% endif %}
@@ -23,12 +26,14 @@
     <button type="submit" value="courseform" onclick="showform(this.value)">add course</button>
     <button type="submit" value="assignmentform" onclick="showform(this.value)">add assignment</button>
     <button type="submit" value="examform" onclick="showform(this.value)">add exam</button>
+    <button type="submit" value="programform" onclick="showform(this.value)">add program</button>
 
 
     <div id="courseform" style="display: none;">
         <form action="/addcourse" method="post">
             <input type="text" name="coursecode" id="coursecode">coursecode
             <input type="text" name="coursename" id="coursename">coursename
+            <input type="number" name="capacity" id="capacity" min="0">capacity
             <select name="program_id" id="" required>
                 <option value=''> --select a program--</option>
                     {% for p in programs %}
@@ -40,7 +45,12 @@
     </div>
     <div id="assignmentform" style="display: none;" name="assignment">
         <form action="/addassignment" method="post"> 
-            <label for="">coursecode</label><input type="text" name="coursecode" id="coursecode">
+            <select name="coursecode" id="" required>
+                <option value="">--for which course--</option>
+                {% for s in courses %}
+                    <option value="{{s.code}}">{{s.name}}</option>
+                {% endfor %}
+            </select>>
             <label for="">name</label><input type="text" name="name" id="name">
             <label for="">assi_id</label><input type="text" name="assignmentid" id="assignmentid">
             <label for="">date</label><input type="text" name="date" id="date">
@@ -57,11 +67,19 @@
             <input type="submit" value="submit">
         </form>
     </div>
+    <div id="programform" style="display: none;">
+        <form action="/addprogram" method="post">
+            <label for="">name</label><input type="text" name="name" id="name">
+            <label for="">program id</label><input type="text" name="programid" id="programid">
+            <input type="submit" value="submit">
+        </form>
+    </div>
     
     
     <script>
         function showform(type){
             document.getElementById("courseform").style.display = "none";
+            document.getElementById("programform").style.display = "none";
             document.getElementById("assignmentform").style.display = "none";
             document.getElementById("examform").style.display = "none";
             document.getElementById(type ).style.display = "block";
