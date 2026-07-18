@@ -11,6 +11,12 @@
         <label for="">enter ur last name:</label><input type="text" name="lname" id="lname" required>   
         <label for="">email:</label><input type="email" name="email" id="email" required>   
         <label for="">password:</label><input type="password" name="password" id="password" required>   
+        <select name="program _id" id="" required>
+            <option value="">-- choose a program --</option>
+            {% for p in programs %}
+                <option value="{{ p.id }}">{{ p.name }}</option>
+            {% endfor %}
+        </select>   
         <button type="submit">submit</button>
     </form>
 </body>

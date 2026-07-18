@@ -29,7 +29,7 @@
     </table>
     <script>
         function courseregister(coursecode,s_id,buttonelement){
-            fetch(`/registercourse/${s_id}/${coursecode}`,{method:'POST'} )
+            fetch(`/registercourse/${coursecode}`,{method:'POST'} )
             .then(response => response.text())
             .then(data => {
                 if (data ==='success'){

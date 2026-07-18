@@ -20,6 +20,7 @@ class student(db.Model):
     lname=db.Column(db.String(200))
     email = db.Column(db.String(200), unique=True, nullable=False)
     password_hash = db.Column(db.String(255), nullable=False)
+    program_id=db.Column(db.string(255), db.ForeignKey('program.id'))
 class courses(db.Model):
     code=db.Column(db.Integer,primary_key=True)
     name = db.Column(db.String(200))   
@@ -42,9 +43,9 @@ class assignments(db.Model):
     
 class program(db.Model):
     id = db.Column(db.Integer, primary_key=True)
-    name = db.Column(db.String(200))   # "Biology", "Physics"
+    name = db.Column(db.String(200))
 
-class program_courses(db.Model):     # which courses a program allows
+class program_courses(db.Model):
     program_id = db.Column(db.Integer, db.ForeignKey('program.id'), primary_key=True)
     course_code = db.Column(db.Integer, db.ForeignKey('courses.code'), primary_key=True)
 
@@ -87,7 +88,8 @@ def staff_required(f):
 
 @app.route('/newstudentpage')
 def newstudentpage():
-    return render_template('newstudentpage.html')
+    programs=programs.query.all()
+    return render_template('newstudentpage.html',programs=programs)
 
 @app.route("/newstudent",methods=['GET','POST'])
 def register():
@@ -95,12 +97,13 @@ def register():
         student_fname = request.form.get('fname','').strip()
         student_lname = request.form.get('lname','').strip()
         student_email = request.form.get('email','').strip().lower()
+        student_program=request.form.get('program_id','')
         password = request.form.get('password','')
-        if not student_fname or not student_email or not password:
+        if not student_fname or not student_email or not password or not student_program:
             return render_template('newstudentpage.html', error='all fields required')
         
         student_pass=generate_password_hash(password)
-        new_student=student(fname=student_fname,lname=student_lname,email=student_email,password_hash=student_pass)
+        new_student=student(fname=student_fname,lname=student_lname,email=student_email,password_hash=student_pass,program_id=student_program)
         try:
             db.session.add(new_student)
             db.session.commit()
@@ -125,7 +128,8 @@ def success():
 @staff_required
 def backdoor():
     added=request.args.get('added')
-    return render_template('backdoor.html',added=added)
+    programs=program.query.all()
+    return render_template('backdoor.html',added=added,programs=programs)
    
 
 
@@ -134,16 +138,24 @@ def backdoor():
 def addcourse():
 
     if request.method=='POST':
+        program_id=request.form.get('program_id','')
+        if not program.query.get(program_id):
+            return render_template('backdoor.html', error='invalid program',programs=program.query.all())
         course_id=request.form['coursecode']
         course_name=request.form['coursename']
 
+        course_program=program_courses(program_id=program_id,course_code=course_id)
         addedcourse=courses(code=course_id,name=course_name)
-        
-        db.session.add(addedcourse)
-        db.session.commit()
-        return redirect(url_for('backdoor', added='course'))
-        
-    return render_template('backdoor.html')
+        try:
+            db.session.add(course_program)
+            db.session.add(addedcourse)
+            db.session.commit()
+            return redirect(url_for('backdoor', added='course'))
+        except  Exception:
+            db.session.rollback()
+            return render_template('backdoor.html', error='error adding course', programs=program.query.all())
+
+    return render_template('backdoor.html',programs=program.query.all())
 
 
 
@@ -196,9 +208,10 @@ def options():
 def registering():
     s_id=session.get('student_id')
     try:
-        all_courses=courses.query.all()
+        me=student.query.get(s_id)
+        allowed=courses.query.join(program_courses).filter(program_courses.program_id == me.program_id).all()
         registered_codes=[r.course_code for r in registered.query.filter_by(student_id=s_id).all()]
-        return render_template('client.html',courses=all_courses,s_id=s_id,registered_codes=registered_codes)
+        return render_template('client.html',courses=allowed,s_id=s_id,registered_codes=registered_codes)
     except:
         return 'error'
 
@@ -223,8 +236,12 @@ def dashboard():
 @student_required
 def courseregister(coursecode):
     s_id=session.get('student_id')
+    me=student.query.get(s_id)
+    allowed=program_courses.query.filter_by(program_id=me.program_id,course_code=coursecode).first()
     existing=registered.query.filter_by(student_id=s_id,course_code=coursecode).first()
-    if existing:
+    if not allowed:
+        return 'not in ur program', 403
+    if existing:    
         return 'already registered'
     new_register=registered(student_id=s_id,course_code=coursecode)
     try:
