@@ -1,0 +1,29 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Document</title>
+</head>
+<body>
+    <table>
+    <tr><th>course</th> <th>grade</th> <th>result</th></tr>
+    {% for item in results %}
+    <tr>
+        <td>{{ item.course }}</td>
+        <td>{{ item.grade if item.grade is not none else 'in progress' }}</td>
+        <td>
+            {% if item.grade is none %}
+                —
+            {% elif item.passed %}
+                PASS
+            {% else %}
+                FAIL
+            {% endif %}
+        </td>
+    </tr>
+    {% endfor %}
+</table>
+
+</body>
+</html>

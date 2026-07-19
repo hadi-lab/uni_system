@@ -27,6 +27,7 @@
     <button type="submit" value="assignmentform" onclick="showform(this.value)">add assignment</button>
     <button type="submit" value="examform" onclick="showform(this.value)">add exam</button>
     <button type="submit" value="programform" onclick="showform(this.value)">add program</button>
+    <button type="submit" value="prereqform" onclick="showform(this.value)">add prerequisites</button>
 
 
     <div id="courseform" style="display: none;">
@@ -50,20 +51,25 @@
                 {% for s in courses %}
                     <option value="{{s.code}}">{{s.name}}</option>
                 {% endfor %}
-            </select>>
+            </select>
             <label for="">name</label><input type="text" name="name" id="name">
             <label for="">assi_id</label><input type="text" name="assignmentid" id="assignmentid">
-            <label for="">date</label><input type="text" name="date" id="date">
+            <label for="">date</label><input type="date" name="date" id="date">
             <input type="submit" value="submit">
 
         </form>
     </div>
     <div id="examform" style="display: none;">
         <form action="/addexam" method="post">
-            <label for="">coursecode</label><input type="text" name="coursecode" id="coursecode">
+            <select name="coursecode" id="" required>
+                <option value="">--for which course--</option>
+                {% for s in courses %}
+                    <option value="{{s.code}}">{{s.name}}</option>
+                {% endfor %}
+            </select>
             <label for="">name</label><input type="text" name="name" id="name">
             <label for="">exam_id</label><input type="text" name="examid" id="examid">
-            <label for="">date</label><input type="text" name="date" id="date">
+            <label for="">date</label><input type="date" name="date" id="date">
             <input type="submit" value="submit">
         </form>
     </div>
@@ -74,11 +80,27 @@
             <input type="submit" value="submit">
         </form>
     </div>
+        <div id="prereqform" style="display: none;">
+        <form action="/addprereq" method="post">
+            <label>course:</label>
+            <select name="course_code" required>
+                <option value="">-- course --</option>
+                {% for c in courses %}<option value="{{ c.code }}">{{ c.name }}</option>{% endfor %}
+            </select>
+            <label>requires:</label>
+            <select name="required_course" required>
+                <option value="">-- required course --</option>
+                {% for c in courses %}<option value="{{ c.code }}">{{ c.name }}</option>{% endfor %}
+            </select>
+            <input type="submit" value="add prerequisite">
+        </form>
+    </div>
     
     
     <script>
         function showform(type){
             document.getElementById("courseform").style.display = "none";
+            document.getElementById("prereqform").style.display = "none";
             document.getElementById("programform").style.display = "none";
             document.getElementById("assignmentform").style.display = "none";
             document.getElementById("examform").style.display = "none";

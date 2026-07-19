@@ -1,11 +1,12 @@
 from flask import Flask,url_for,request,redirect,render_template,session
 from flask_sqlalchemy import SQLAlchemy
-from datetime import datetime,timezone
+from datetime import datetime,timezone,date
 from werkzeug.security import generate_password_hash,check_password_hash
 from dotenv import load_dotenv
 from sqlalchemy.exc import IntegrityError
 from functools import wraps
 import os
+PASS_MARK = 50
 
 load_dotenv()
 STAFF_PASSWORD_HASH = os.getenv('STAFF_PASSWORD_HASH')
@@ -58,7 +59,10 @@ class assignment_grades(db.Model):
     student_id = db.Column(db.Integer, db.ForeignKey('student.id'), primary_key=True)
     assignment_id = db.Column(db.Integer, db.ForeignKey('assignments.assignment_id'), primary_key=True)
     grade = db.Column(db.Integer)
-
+class prerequisites(db.Model):
+    course_code = db.Column(db.Integer, db.ForeignKey('courses.code'), primary_key=True)
+    required_course = db.Column(db.Integer, db.ForeignKey('courses.code'), primary_key=True)
+    
 def in_program(s_id, coursecode):
     me = student.query.get(s_id)
     return program_courses.query.filter_by(program_id=me.program_id, course_code=coursecode).first() is not None
@@ -94,6 +98,14 @@ def compute_course_results(s_id,coursecode):
     if row:
         row.grade=result
     
+def meets_prereqs(s_id,coursecode):
+    required_courses=prerequisites.query.filter_by(course_code=coursecode).all()
+    for r in required_courses:
+        a=r.required_course
+        k=registered.query.filter_by(student_id=s_id,course_code=a).first()
+        if k is None or k.grade is None or k.grade < PASS_MARK:
+            return False
+    return True        
 
 @app.route('/login',methods=['GET','POST'])
 def login():
@@ -146,7 +158,7 @@ def register():
         student_program=request.form.get('program_id','')
         password = request.form.get('password','')
         if not student_fname or not student_email or not password or not student_program:
-            return render_template('newstudentpage.html', error='all fields required')
+            return render_template('newstudentpage.html', error='all fields required', programs=program.query.all())
         
         student_pass=generate_password_hash(password)
         new_student=student(fname=student_fname,lname=student_lname,email=student_email,password_hash=student_pass,program_id=student_program)
@@ -156,11 +168,11 @@ def register():
             return redirect(url_for('success',new_id=new_student.id))
         except IntegrityError:
             db.session.rollback()
-            return render_template('newstudentpage.html', error='email already registered')
+            return render_template('newstudentpage.html', error='email already registered', programs=program.query.all())
         except:
             db.session.rollback()
             return 'error adding student'
-    return render_template('newstudentpage.html')
+    return render_template('newstudentpage.html', programs=program.query.all())
 
 
 
@@ -323,6 +335,20 @@ def addprogram():
             return 'error'
     return render_template('backdoor.html',programs=program.query.all(),courses=courses.query.all())
 
+@app.route('/addprereq', methods=['POST'])
+@staff_required
+def addprereq():
+    course_code = request.form.get('course_code','')
+    required_course = request.form.get('required_course','')
+    if course_code == required_course:
+        return render_template('backdoor.html', error="a course can't require itself", programs=program.query.all(), courses=courses.query.all())
+    try:
+        db.session.add(prerequisites(course_code=course_code, required_course=required_course))
+        db.session.commit()
+        return redirect(url_for('backdoor', added='prereq'))
+    except Exception:
+        db.session.rollback()
+        return render_template('backdoor.html', error='error adding prerequisite', programs=program.query.all(), courses=courses.query.all())
 @app.route('/options')
 @student_required
 def options():
@@ -336,8 +362,10 @@ def registering():
     s_id=session.get('student_id')
     try:
         me=student.query.get(s_id)
-        allowed=courses.query.join(program_courses).filter(program_courses.program_id == me.program_id).all()
+        all_courses=courses.query.join(program_courses).filter(program_courses.program_id == me.program_id).all()
+
         registered_codes=[r.course_code for r in registered.query.filter_by(student_id=s_id).all()]
+        allowed = [c for c in all_courses if meets_prereqs(s_id, c.code)]
         return render_template('client.html',courses=allowed,s_id=s_id,registered_codes=registered_codes)
     except:
         return 'error'
@@ -357,11 +385,21 @@ def dashboard():
     all_items=[{'type':'exam','name':e.name,'date':e.date,'grade':exam_grade_lookup.get(e.exam_id),'course':course_lookup[e.course_code]} for e in student_exams]
     all_items+=[{'type':'assignment','name':e.name,'date':e.date,'grade':assign_grade_lookup.get(e.assignment_id),'course':course_lookup[e.course_code]} for e in student_assignments]
     all_items.sort(key= lambda x: x['date'])
-    upcoming_exams=[i for i in all_items if i['type']=='exam' and  i['grade'] is None]
-    upcoming_assignments=[i for i in all_items if i['type']=='assignment' and  i['grade'] is None]
-    graded_exams=[i for i in all_items if i['type']=='exam' and  i['grade'] is not None]
-    graded_assignments=[i for i in all_items if i['type']=='assignment' and i['grade'] is not None]
-    return render_template('dashboard.html',upcoming_exams=upcoming_exams,upcoming_assignments=upcoming_assignments,graded_assignments=graded_assignments,graded_exams=graded_exams,s_id=s_id)
+
+
+    today = date.today()
+
+    # graded first — a grade wins regardless of date
+    graded_exams = [i for i in all_items if i['type']=='exam' and i['grade'] is not None]
+    graded_assignments = [i for i in all_items if i['type']=='assignment' and i['grade'] is not None]
+
+    # of the ungraded, split by date
+    upcoming_exams = [i for i in all_items if i['type']=='exam' and i['grade'] is None and i['date'] >= today]
+    upcoming_assignments = [i for i in all_items if i['type']=='assignment' and i['grade'] is None and i['date'] >= today]
+
+    awaiting_exams = [i for i in all_items if i['type']=='exam' and i['grade'] is None and i['date'] < today]
+    awaiting_assignments = [i for i in all_items if i['type']=='assignment' and i['grade'] is None and i['date'] < today]
+    return render_template('dashboard.html',upcoming_exams=upcoming_exams,upcoming_assignments=upcoming_assignments,graded_assignments=graded_assignments,graded_exams=graded_exams,s_id=s_id,awaiting_exams=awaiting_exams,awaiting_assignments=awaiting_assignments)
 
 @app.route('/registercourse/<int:coursecode>',methods=['POST'])
 @student_required
@@ -373,6 +411,8 @@ def courseregister(coursecode):
         return 'already registered'
     if not has_capacity(coursecode):
         return 'course full',403
+    if not meets_prereqs(s_id,coursecode):
+        return 'prerequisites not met', 403
     new_register=registered(student_id=s_id,course_code=coursecode)
     try:
         db.session.add(new_register)
@@ -381,7 +421,14 @@ def courseregister(coursecode):
     except Exception as e:
         print(e)
         return 'error'
-
+@app.route('/results')
+@student_required
+def results():
+    s_id = session.get('student_id')
+    rows = registered.query.filter_by(student_id=s_id).all()
+    course_lookup = {c.code: c.name for c in courses.query.all()}
+    results = [{'course': course_lookup[r.course_code],'grade': r.grade,'passed': r.grade is not None and r.grade >= PASS_MARK}for r in rows]
+    return render_template('results.html', results=results)
 
 
 @app.route('/staff-login',methods=['GET','POST'])

@@ -13,6 +13,7 @@
             <th>enroll</th>
         </tr>
         {% for course in courses %}
+        
         <tr>
             <td>{{ course.name }}</td>
             <td>{{ course.code }}</td>
@@ -20,15 +21,15 @@
                 {% if course.code in registered_codes %}
                     registered ✓
                 {% else %}
-                    <button onclick="courseregister('{{ course.code }}','{{ s_id }}',this)">register</button>
+                    <button onclick="courseregister('{{ course.code }}',this)">register</button>
                 {% endif %}
-
             </td>
         </tr>
+        
         {% endfor %}
     </table>
     <script>
-        function courseregister(coursecode,s_id,buttonelement){
+        function courseregister(coursecode,buttonelement){
             fetch(`/registercourse/${coursecode}`,{method:'POST'} )
             .then(response => response.text())
             .then(data => {

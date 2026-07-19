@@ -6,12 +6,16 @@
     <title>Document</title>
 </head>
 <body>
+    {% if error =='email already registered' %}
+        <h3>email already used</h3>
+    {% endif %}
+
     <form action="/newstudent" method="post">
         <label for="">enter ur first name:</label><input type="text" name="fname" id="fname" required>   
         <label for="">enter ur last name:</label><input type="text" name="lname" id="lname" required>   
         <label for="">email:</label><input type="email" name="email" id="email" required>   
         <label for="">password:</label><input type="password" name="password" id="password" required>   
-        <select name="program _id" id="" required>
+        <select name="program_id" id="" required>
             <option value="">-- choose a program --</option>
             {% for p in programs %}
                 <option value="{{ p.id }}">{{ p.name }}</option>
