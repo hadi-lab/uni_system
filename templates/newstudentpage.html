@@ -1,27 +1,34 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Document</title>
-</head>
-<body>
-    {% if error =='email already registered' %}
-        <h3>email already used</h3>
-    {% endif %}
+{% extends "base.html" %}
+{% block content %}
+<div class="login-wrap">
+    <div class="login-card">
+        <h1>Register</h1>
+        {% if error %}<p class="error">{{ error }}</p>{% endif %}
+        <form action="/newstudent" method="post">
+            <label for="fname">First name</label>
+            <input type="text" name="fname" id="fname" required>
 
-    <form action="/newstudent" method="post">
-        <label for="">enter ur first name:</label><input type="text" name="fname" id="fname" required>   
-        <label for="">enter ur last name:</label><input type="text" name="lname" id="lname" required>   
-        <label for="">email:</label><input type="email" name="email" id="email" required>   
-        <label for="">password:</label><input type="password" name="password" id="password" required>   
-        <select name="program_id" id="" required>
-            <option value="">-- choose a program --</option>
-            {% for p in programs %}
-                <option value="{{ p.id }}">{{ p.name }}</option>
-            {% endfor %}
-        </select>   
-        <button type="submit">submit</button>
-    </form>
-</body>
-</html>
+            <label for="lname">Last name</label>
+            <input type="text" name="lname" id="lname" required>
+
+            <label for="email">Email</label>
+            <input type="email" name="email" id="email" required>
+
+            <label for="password">Password</label>
+            <input type="password" name="password" id="password" required>
+            <small class="hint">At least 8 characters, one uppercase letter, one number</small>
+
+            <label for="program">Program</label>
+            <select name="program_id" id="program" required>
+                <option value="">-- choose a program --</option>
+                {% for p in programs %}
+                    <option value="{{ p.id }}">{{ p.name }}</option>
+                {% endfor %}
+            </select>
+
+            <button type="submit">Register</button>
+        </form>
+        <p class="alt">Already have an account? <a href="/">Log in</a></p>
+    </div>
+</div>
+{% endblock %}

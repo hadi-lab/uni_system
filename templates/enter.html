@@ -1,24 +1,21 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Document</title>
-</head>
-<body>
-    
-    {% block body %}
-    {% endblock %}
-    {% if error == 'invalid credentials' %}
-    <h5>invalid credentials.</h5>
-    {% endif %}
-    <form action="/login" method="post">
+{% extends "base.html" %}
+{% block content %}
+<a href="/staff-login" class="staff-link">staff login</a>
 
-        <label for="">enter ur email:</label><input type="email" name="email" id="email">
-        <label for="">enter ur password:</label><input type="password" name="password" id="password">
-        
-        <input type="submit" value="enter">
-    </form>
-    <p>New here? <a href="/newstudentpage">Register as a new student</a></p>
-</body>
-</html>
+<div class="login-wrap">
+    <div class="login-card">
+        <h1>Sign in</h1>
+        {% if error %}<p class="error">{{ error }}</p>{% endif %}
+        <form action="/login" method="post">
+            <label for="email">Email</label>
+            <input type="email" name="email" id="email" required>
+
+            <label for="password">Password</label>
+            <input type="password" name="password" id="password" required>
+
+            <button type="submit">Sign in</button>
+        </form>
+        <p class="alt">New here? <a href="/newstudentpage">Register as a new student</a></p>
+    </div>
+</div>
+{% endblock %}

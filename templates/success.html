@@ -1,7 +1,10 @@
-{% extends 'enter.html' %}
-
-
-{% block body %}
-<h1>successfully Registered</h1>
-<h1>Your id is {{ new_id }}</h1>
+{% extends "base.html" %}
+{% block content %}
+<div class="login-wrap">
+    <div class="login-card">
+        <h1>Registered!</h1>
+        <p class="alt">Your account has been created. You can now log in.</p>
+        <a href="/"><button type="button">Go to login</button></a>
+    </div>
+</div>
 {% endblock %}

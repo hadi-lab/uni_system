@@ -106,6 +106,14 @@ def meets_prereqs(s_id,coursecode):
         if k is None or k.grade is None or k.grade < PASS_MARK:
             return False
     return True        
+def password_ok(pw):
+    if len(pw) < 8:
+        return False
+    if not any(c.isupper() for c in pw):
+        return False
+    if not any(c.isdigit() for c in pw):
+        return False
+    return True
 
 @app.route('/login',methods=['GET','POST'])
 def login():
@@ -125,7 +133,7 @@ def logout():
         
 @app.route('/')
 def index():
-    return render_template('frontpage.html')
+    return render_template('enter.html')
 
 def student_required(f):
     @wraps(f)
@@ -157,6 +165,10 @@ def register():
         student_email = request.form.get('email','').strip().lower()
         student_program=request.form.get('program_id','')
         password = request.form.get('password','')
+        if not password_ok(password):
+            return render_template('newstudentpage.html',error='password must be 8+ characters with an uppercase letter and a number',programs=program.query.all())
+        
+        
         if not student_fname or not student_email or not password or not student_program:
             return render_template('newstudentpage.html', error='all fields required', programs=program.query.all())
         
@@ -389,11 +401,9 @@ def dashboard():
 
     today = date.today()
 
-    # graded first — a grade wins regardless of date
     graded_exams = [i for i in all_items if i['type']=='exam' and i['grade'] is not None]
     graded_assignments = [i for i in all_items if i['type']=='assignment' and i['grade'] is not None]
 
-    # of the ungraded, split by date
     upcoming_exams = [i for i in all_items if i['type']=='exam' and i['grade'] is None and i['date'] >= today]
     upcoming_assignments = [i for i in all_items if i['type']=='assignment' and i['grade'] is None and i['date'] >= today]
 

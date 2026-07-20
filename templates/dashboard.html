@@ -1,32 +1,30 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <link rel="stylesheet" href="{{ url_for('static',filename='styles.css') }}">
-    <title>Document</title>
-</head>
-<body>
+{% extends "base.html" %}
+{% block content %}
     <h2>Upcoming</h2>
     <div class="row">
         <div>
             <table>
-                <tr> <th>exam</th> <th>name</th> <th>date</th></tr>
+                <thead><tr> <th>exam</th> <th>name</th> <th>date</th></tr></thead>
+                <tbody>
                 {% for item in upcoming_exams %}
                 <tr> <td>{{ item.course }}</td> <td>{{ item.name }}</td> <td>{{ item.date }}</td></tr>
                 {% else %}
                     <tr><td colspan="3">no upcoming exams</td></tr>
                 {% endfor%}
+                </tbody>
             </table>
         </div>
         <div>
             <table>
-                <tr><th>assignment</th> <th>name</th><th>date</th></tr>
+
+                <thead><tr><th>assignment</th> <th>name</th><th>date</th></tr></thead>
+                <tbody>
                 {% for item in upcoming_assignments %}
                 <tr> <td>{{ item.course }}</td> <td>{{ item.name }}</td> <td>{{ item.date }}</td></tr>
                 {% else %}
                     <tr><td colspan="3">no upcoming assignments</td></tr>
                 {% endfor%}
+                </tbody>
             </table>
         </div>
     </div>
@@ -34,22 +32,30 @@
     <div class="row">
         <div>
             <table>
-                <tr> <th>exam</th> <th>grade</th> <th>date</th></tr>
+                <thead>
+                    <tr> <th>exam</th> <th>grade</th> <th>date</th></tr>
+                </thead>
+                <tbody>
                 {% for item in graded_exams %}
                 <tr> <td>{{ item.course }}</td> <td> {{ item.grade }}</td> <td>{{ item.date }}</td></tr>
                 {% else %}
                     <tr><td colspan="3">nothing graded yet</td></tr>
                 {% endfor%}
+                </tbody>
             </table>
         </div>
         <div>
             <table>
+                <thead>
                 <tr> <th>course</th> <th>assignment name</th> <th>grade</th> <th>date</th></tr>
+                </thead>
+                <tbody>
                 {% for item in graded_assignments %}
                 <tr> <td>{{ item.course }}</td> <td> {{ item.name }}</td> <td> {{ item.grade }}</td> <td>{{ item.date }}</td></tr>
                 {% else %}
                     <tr><td colspan="3">nothing graded yet</td></tr>
                 {% endfor%}
+                </tbody>
             </table>
         </div>
     </div>
@@ -57,25 +63,28 @@
     <div class="row">
         <div>
             <table>
-                <tr> <th>exam</th>  <th>date</th></tr>
-                {% for item in awaiting_exams %}
-                <tr> <td>{{ item.course }}</td>  <td>{{ item.date }}</td></tr>
-                {% else %}
-                    <tr><td colspan="3">no awaiting grade</td></tr>
-                {% endfor%}
+                <thead><tr><th>exam</th> <th>date</th></tr></thead>
+                <tbody>
+                    {% for item in awaiting_exams %}
+                    <tr><td>{{ item.course }}</td> <td>{{ item.date }}</td></tr>
+                    {% else %}
+                    <tr><td colspan="2">no awaiting grade</td></tr>
+                    {% endfor %}
+                    </tbody>
             </table>
         </div>
         <div>
             <table>
-                <tr> <th>course</th> <th>assignment name</th> <th>date</th></tr>
+                <thead><tr><th>course</th> <th>assignment name</th> <th>date</th></tr></thead>
+                <tbody>
                 {% for item in awaiting_assignments %}
-                <tr> <td>{{ item.course }}</td> <td> {{ item.name }}</td> <td>{{ item.date }}</td></tr>
+                <tr><td>{{ item.course }}</td> <td>{{ item.name }}</td> <td>{{ item.date }}</td></tr>
                 {% else %}
-                    <tr><td colspan="3">no awaiting grade</td></tr>
-                {% endfor%}
+                <tr><td colspan="3">no awaiting grade</td></tr>
+                {% endfor %}
+                </tbody>
             </table>
         </div>
     </div>
     
-</body>
-</html>
+{% endblock %}

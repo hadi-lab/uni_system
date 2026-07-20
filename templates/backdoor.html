@@ -1,116 +1,136 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <link rel="stylesheet" href="{{ url_for('static',filename='styles.css') }}">
-    <title>Document</title>
-</head>
-<body>
-    {% if error == 'invalid program' %}
-        <h1>invalid program</h1>
-    {% endif %}
-    {% if added == 'course' %}
-        <h1>Course added successfully ✓</h1>
-    {% endif %}
-    {% if added == 'program' %}
-        <h1>program added successfully ✓</h1>
-    {% endif %}
-    {% if added == 'assignment' %}
-        <h1>assignment added successfully ✓</h1>
-    {% endif %}
-    {% if added == 'exam' %}
-        <h1>exam added successfully ✓</h1>
-    {% endif %}
-    
-    <button type="submit" value="courseform" onclick="showform(this.value)">add course</button>
-    <button type="submit" value="assignmentform" onclick="showform(this.value)">add assignment</button>
-    <button type="submit" value="examform" onclick="showform(this.value)">add exam</button>
-    <button type="submit" value="programform" onclick="showform(this.value)">add program</button>
-    <button type="submit" value="prereqform" onclick="showform(this.value)">add prerequisites</button>
+{% extends "base.html" %}
+{% block content %}
+<div class="backdoor">
 
+    {% if added %}
+        <p class="success-banner">{{ added }} added successfully ✓</p>
+    {% endif %}
+    {% if error %}
+        <p class="error-banner">{{ error }}</p>
+    {% endif %}
 
-    <div id="courseform" style="display: none;">
+    <div class="tab-bar">
+        <button onclick="showForm('courseform', this)" class="active">add course</button>
+        <button onclick="showForm('assignmentform', this)">add assignment</button>
+        <button onclick="showForm('examform', this)">add exam</button>
+        <button onclick="showForm('programform', this)">add program</button>
+        <button onclick="showForm('prereqform', this)">add prerequisites</button>
+    </div>
+
+    <div id="courseform" class="form-card">
         <form action="/addcourse" method="post">
-            <input type="text" name="coursecode" id="coursecode">coursecode
-            <input type="text" name="coursename" id="coursename">coursename
-            <input type="number" name="capacity" id="capacity" min="0">capacity
-            <select name="program_id" id="" required>
-                <option value=''> --select a program--</option>
-                    {% for p in programs %}
-                        <option value="{{ p.id }}">{{p.name}} </option>
-                    {% endfor %}
-            </select>
-            <input type="submit" value="submit">
-        </form>
-    </div>
-    <div id="assignmentform" style="display: none;" name="assignment">
-        <form action="/addassignment" method="post"> 
-            <select name="coursecode" id="" required>
-                <option value="">--for which course--</option>
-                {% for s in courses %}
-                    <option value="{{s.code}}">{{s.name}}</option>
+            <label for="c_code">Course code</label>
+            <input type="text" name="coursecode" id="c_code" required>
+
+            <label for="c_name">Course name</label>
+            <input type="text" name="coursename" id="c_name" required>
+
+            <label for="c_cap">Capacity</label>
+            <input type="number" name="capacity" id="c_cap" min="0">
+
+            <label for="c_prog">Program</label>
+            <select name="program_id" id="c_prog" required>
+                <option value="">-- choose a program --</option>
+                {% for p in programs %}
+                    <option value="{{ p.id }}">{{ p.name }}</option>
                 {% endfor %}
             </select>
-            <label for="">name</label><input type="text" name="name" id="name">
-            <label for="">assi_id</label><input type="text" name="assignmentid" id="assignmentid">
-            <label for="">date</label><input type="date" name="date" id="date">
-            <input type="submit" value="submit">
 
+            <button type="submit">add course</button>
         </form>
     </div>
-    <div id="examform" style="display: none;">
+
+    <div id="assignmentform" class="form-card" style="display:none;">
+        <form action="/addassignment" method="post">
+            <label for="a_course">Course</label>
+            <select name="coursecode" id="a_course" required>
+                <option value="">-- which course --</option>
+                {% for c in courses %}
+                    <option value="{{ c.code }}">{{ c.name }}</option>
+                {% endfor %}
+            </select>
+
+            <label for="a_name">Name</label>
+            <input type="text" name="name" id="a_name" required>
+
+            <label for="a_id">Assignment id</label>
+            <input type="text" name="assignmentid" id="a_id" required>
+
+            <label for="a_date">Date</label>
+            <input type="date" name="date" id="a_date" required>
+
+            <button type="submit">add assignment</button>
+        </form>
+    </div>
+
+    <div id="examform" class="form-card" style="display:none;">
         <form action="/addexam" method="post">
-            <select name="coursecode" id="" required>
-                <option value="">--for which course--</option>
-                {% for s in courses %}
-                    <option value="{{s.code}}">{{s.name}}</option>
+            <label for="e_course">Course</label>
+            <select name="coursecode" id="e_course" required>
+                <option value="">-- which course --</option>
+                {% for c in courses %}
+                    <option value="{{ c.code }}">{{ c.name }}</option>
                 {% endfor %}
             </select>
-            <label for="">name</label><input type="text" name="name" id="name">
-            <label for="">exam_id</label><input type="text" name="examid" id="examid">
-            <label for="">date</label><input type="date" name="date" id="date">
-            <input type="submit" value="submit">
-        </form>
-    </div>
-    <div id="programform" style="display: none;">
-        <form action="/addprogram" method="post">
-            <label for="">name</label><input type="text" name="name" id="name">
-            <label for="">program id</label><input type="text" name="programid" id="programid">
-            <input type="submit" value="submit">
-        </form>
-    </div>
-        <div id="prereqform" style="display: none;">
-        <form action="/addprereq" method="post">
-            <label>course:</label>
-            <select name="course_code" required>
-                <option value="">-- course --</option>
-                {% for c in courses %}<option value="{{ c.code }}">{{ c.name }}</option>{% endfor %}
-            </select>
-            <label>requires:</label>
-            <select name="required_course" required>
-                <option value="">-- required course --</option>
-                {% for c in courses %}<option value="{{ c.code }}">{{ c.name }}</option>{% endfor %}
-            </select>
-            <input type="submit" value="add prerequisite">
-        </form>
-    </div>
-    
-    
-    <script>
-        function showform(type){
-            document.getElementById("courseform").style.display = "none";
-            document.getElementById("prereqform").style.display = "none";
-            document.getElementById("programform").style.display = "none";
-            document.getElementById("assignmentform").style.display = "none";
-            document.getElementById("examform").style.display = "none";
-            document.getElementById(type ).style.display = "block";
-        }
-        
-    </script>
-    
-    
-    
 
-</body>
-</html>
+            <label for="e_name">Name</label>
+            <input type="text" name="name" id="e_name" required>
+
+            <label for="e_id">Exam id</label>
+            <input type="text" name="examid" id="e_id" required>
+
+            <label for="e_date">Date</label>
+            <input type="date" name="date" id="e_date" required>
+
+            <button type="submit">add exam</button>
+        </form>
+    </div>
+
+    <div id="programform" class="form-card" style="display:none;">
+        <form action="/addprogram" method="post">
+            <label for="p_id">Program id</label>
+            <input type="text" name="programid" id="p_id" required>
+
+            <label for="p_name">Program name</label>
+            <input type="text" name="name" id="p_name" required>
+
+            <button type="submit">add program</button>
+        </form>
+    </div>
+
+    <div id="prereqform" class="form-card" style="display:none;">
+        <form action="/addprereq" method="post">
+            <label for="pr_course">Course</label>
+            <select name="course_code" id="pr_course" required>
+                <option value="">-- course --</option>
+                {% for c in courses %}
+                    <option value="{{ c.code }}">{{ c.name }}</option>
+                {% endfor %}
+            </select>
+
+            <label for="pr_req">Requires</label>
+            <select name="required_course" id="pr_req" required>
+                <option value="">-- required course --</option>
+                {% for c in courses %}
+                    <option value="{{ c.code }}">{{ c.name }}</option>
+                {% endfor %}
+            </select>
+
+            <button type="submit">add prerequisite</button>
+        </form>
+    </div>
+
+</div>
+
+<script>
+    function showForm(id, btn) {
+        // hide all form cards
+        document.querySelectorAll('.form-card').forEach(f => f.style.display = 'none');
+        // show the chosen one
+        document.getElementById(id).style.display = 'block';
+        // update active tab
+        document.querySelectorAll('.tab-bar button').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+    }
+</script>
+{% endblock %}

@@ -1,29 +1,28 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Document</title>
-</head>
-<body>
-    <table>
-    <tr><th>course</th> <th>grade</th> <th>result</th></tr>
+{% extends "base.html" %}
+{% block content %}
+<h2>Course results</h2>
+<table>
+    <thead>
+        <tr><th>course</th> <th>grade</th> <th>result</th></tr>
+    </thead>
+    <tbody>
     {% for item in results %}
-    <tr>
-        <td>{{ item.course }}</td>
-        <td>{{ item.grade if item.grade is not none else 'in progress' }}</td>
-        <td>
-            {% if item.grade is none %}
-                —
-            {% elif item.passed %}
-                PASS
-            {% else %}
-                FAIL
-            {% endif %}
-        </td>
-    </tr>
+        <tr>
+            <td>{{ item.course }}</td>
+            <td>{{ item.grade if item.grade is not none else 'in progress' }}</td>
+            <td>
+                {% if item.grade is none %}
+                    <span class="badge pending">in progress</span>
+                {% elif item.passed %}
+                    <span class="badge pass">PASS</span>
+                {% else %}
+                    <span class="badge fail">FAIL</span>
+                {% endif %}
+            </td>
+        </tr>
+    {% else %}
+        <tr><td colspan="3">no results yet</td></tr>
     {% endfor %}
+    </tbody>
 </table>
-
-</body>
-</html>
+{% endblock %}
