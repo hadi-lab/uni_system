@@ -1,0 +1,45 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="semesters-page">
+    <h1>Manage Semesters</h1>
+
+    {% if error %}<p class="error-banner">{{ error }}</p>{% endif %}
+    {% if added %}<p class="success-banner">semester added ✓</p>{% endif %}
+    <div class="form-card">
+        <form action="/addsemester" method="post">
+            <label for="sem_name">New semester</label>
+            <input type="text" name="name" id="sem_name" placeholder="e.g. Fall 2026" required>
+            <button type="submit">add semester</button>
+        </form>
+    </div>
+
+    <table>
+        <thead>
+            <tr><th>semester</th> <th>status</th> <th></th></tr>
+        </thead>
+        <tbody>
+        {% for s in semesters %}
+        <tr>
+            <td>{{ s.name }}</td>
+            <td>
+                {% if s.is_active %}
+                    <span class="badge pass">active</span>
+                {% else %}
+                    <span class="badge pending">inactive</span>
+                {% endif %}
+            </td>
+            <td>
+                {% if not s.is_active %}
+                    <form action="/setsemester/{{ s.id }}" method="post" style="display:inline">
+                        <button type="submit">activate</button>
+                    </form>
+                {% endif %}
+            </td>
+        </tr>
+        {% else %}
+            <tr><td colspan="3">no semesters yet</td></tr>
+        {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endblock %}

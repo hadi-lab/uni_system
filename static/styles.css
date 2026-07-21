@@ -369,3 +369,6 @@ button, input, select {
     outline: none;
     border-color: var(--teal);
 }
+.semesters-page { max-width: 600px; margin: 40px auto; }
+.semesters-page h1 { color: var(--navy); }
+.semesters-page .form-card { max-width: 400px; margin-bottom: 24px; }

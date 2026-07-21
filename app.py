@@ -30,18 +30,23 @@ class registered(db.Model):
     student_id = db.Column(db.Integer, db.ForeignKey('student.id'), primary_key=True)
     course_code = db.Column(db.Integer, db.ForeignKey('courses.code'), primary_key=True)
     grade = db.Column(db.Integer, nullable=True)
-    
+    semester_id = db.Column(db.Integer, db.ForeignKey('semester.id'), primary_key=True)  
+
 class exams(db.Model):
     exam_id=db.Column(db.Integer,primary_key=True)
     course_code = db.Column(db.Integer, db.ForeignKey('courses.code'),nullable=False)
     date=db.Column(db.Date,nullable=False)
     name = db.Column(db.String(200))
     weight=db.Column(db.Integer,nullable=False)
+    semester_id = db.Column(db.Integer, db.ForeignKey('semester.id'), nullable=False)  
+
 class assignments(db.Model):
     assignment_id=db.Column(db.Integer,primary_key=True)
     course_code = db.Column(db.Integer, db.ForeignKey('courses.code'),nullable=False)
     name = db.Column(db.String(200))
     date = db.Column(db.Date, nullable=False)
+    semester_id = db.Column(db.Integer, db.ForeignKey('semester.id'), nullable=False)  
+
     weight=db.Column(db.Integer,nullable=False)
 class program(db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -63,12 +68,30 @@ class assignment_grades(db.Model):
 class prerequisites(db.Model):
     course_code = db.Column(db.Integer, db.ForeignKey('courses.code'), primary_key=True)
     required_course = db.Column(db.Integer, db.ForeignKey('courses.code'), primary_key=True)
-    
+
+class semester(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    name = db.Column(db.String(50), nullable=False)      
+    is_active = db.Column(db.Boolean, default=False)
+
+def current_semester():
+    return semester.query.filter_by(is_active=True).first()
+def can_register(s_id, coursecode):
+    records = registered.query.filter_by(student_id=s_id, course_code=coursecode).all()
+    if any(r.grade is not None and r.grade >= PASS_MARK for r in records):
+        return False
+    sem = current_semester()
+    if any(r.semester_id == sem.id for r in records):
+        return False
+    return True
+
+
 def weight_ok(coursecode, new_weight):
+    sem = current_semester()
     total = 0
-    for e in exams.query.filter_by(course_code=coursecode).all():
+    for e in exams.query.filter_by(course_code=coursecode, semester_id=sem.id).all():
         total += e.weight
-    for a in assignments.query.filter_by(course_code=coursecode).all():
+    for a in assignments.query.filter_by(course_code=coursecode, semester_id=sem.id).all():
         total += a.weight
     return total + int(new_weight) <= 100
 
@@ -80,32 +103,41 @@ def already_registered(s_id, coursecode):
     return registered.query.filter_by(student_id=s_id, course_code=coursecode).first() is not None
 
 def has_capacity(coursecode):
+    sem = current_semester()
     course = courses.query.get(coursecode)
     if course.capacity is None:
         return True
-    return registered.query.filter_by(course_code=coursecode).count() < course.capacity
-def compute_course_results(s_id,coursecode):
-    course_exams=exams.query.filter_by(course_code=coursecode).all()
-    course_assignments=assignments.query.filter_by(course_code=coursecode).all()
-    exam_grade_map={e.exam_id:e.grade for e in exam_grades.query.filter_by(student_id=s_id).all()}
-    assignment_grade_map={a.assignment_id:a.grade for a in assignment_grades.query.filter_by(student_id=s_id).all()}
-    grades=[]
+    count = registered.query.filter_by(course_code=coursecode, semester_id=sem.id).count()
+    return count < course.capacity
+
+def compute_course_results(s_id, coursecode, semester_id):
+    course_exams = exams.query.filter_by(course_code=coursecode, semester_id=semester_id).all()
+    course_assignments = assignments.query.filter_by(course_code=coursecode, semester_id=semester_id).all()
+
+    exam_grade_map = {g.exam_id: g.grade for g in exam_grades.query.filter_by(student_id=s_id).all()}
+    assignment_grade_map = {g.assignment_id: g.grade for g in assignment_grades.query.filter_by(student_id=s_id).all()}
+    total_weighted = 0
+    total_weight = 0
+
     for e in course_exams:
-        g=exam_grade_map.get(e.exam_id)
+        g = exam_grade_map.get(e.exam_id)
         if g is None:
-            return
-        grades.append(g)
+            return      
+        total_weighted += g * e.weight
+        total_weight += e.weight
+
     for a in course_assignments:
-        g=assignment_grade_map.get(a.assignment_id)
+        g = assignment_grade_map.get(a.assignment_id)
         if g is None:
             return
-        grades.append(g)
-    if not grades:
+        total_weighted += g * a.weight
+        total_weight += a.weight
+    if total_weight != 100:
         return
-    result=sum(grades)/len(grades)
-    row=registered.query.filter_by(student_id=s_id,course_code=coursecode).first()
+    result = total_weighted / 100        
+    row = registered.query.filter_by(student_id=s_id, course_code=coursecode,semester_id=semester_id).first()
     if row:
-        row.grade=result
+        row.grade = result
     
 def meets_prereqs(s_id,coursecode):
     required_courses=prerequisites.query.filter_by(course_code=coursecode).all()
@@ -123,6 +155,9 @@ def password_ok(pw):
     if not any(c.isdigit() for c in pw):
         return False
     return True
+def current_semester():
+    return semester.query.filter_by(is_active=True).first()
+
 
 @app.route('/login',methods=['GET','POST'])
 def login():
@@ -265,25 +300,33 @@ def grade_item():
     for key,value in request.form.items():
         if key.startswith('grade_') and value:
             s_id=int(key[6:])
+            if not value.isdigit() or int(value) > 100:
+                continue
             if kind== 'exam':
                 record=exam_grades.query.filter_by(exam_id=item_id,student_id=s_id).first()
                 if record:
-                    record.grade=value
+                    record.grade=int(value)
                 else:
-                    new_record=exam_grades(student_id=s_id,exam_id=item_id,grade=value)
+                    new_record=exam_grades(student_id=s_id,exam_id=item_id,grade=int(value))
                     db.session.add(new_record)
             elif kind=='assignment':
                 record=assignment_grades.query.filter_by(assignment_id=item_id,student_id=s_id).first()
                 if record:
-                    record.grade=value
+                    record.grade=int(value)
                 else:
-                    new_record=assignment_grades(student_id=s_id,assignment_id=item_id,grade=value)
+                    new_record=assignment_grades(student_id=s_id,assignment_id=item_id,grade=int(value))
                     db.session.add(new_record)
     db.session.flush()
+    if kind == 'exam':
+        item = exams.query.get(item_id)
+    else:
+        item = assignments.query.get(item_id)
+    course_code = item.course_code
+    sem_id = item.semester_id 
     for key, value in request.form.items():
         if key.startswith('grade_') and value:
             s_id = int(key[6:])
-            compute_course_results(s_id,course_code)
+            compute_course_results(s_id,course_code,sem_id)
     try:
         db.session.commit()
         return redirect(url_for('gradingpage'))
@@ -332,6 +375,10 @@ def addassignment():
         weight=request.form['weight']
         date_obj = datetime.strptime(date, '%Y-%m-%d').date()
         newassignment=assignments(course_code=course_id,date=date_obj,name=assignment_name,weight=weight)
+        sem=current_semester()
+        if sem is None:
+            return render_template('backdoor.html', error='no active semester set',programs=program.query.all(), courses=courses.query.all())
+
         if not courses.query.get(course_id):
             return render_template('backdoor.html',error='invalid course',programs=program.query.all(),courses=courses.query.all())
         if not weight_ok(course_id, weight):
@@ -356,7 +403,11 @@ def addexam():
         weight=request.form['weight']
         date_obj = datetime.strptime(date, '%Y-%m-%d').date()
         newexam=exams(course_code=course_id,name=exam_name,date=date_obj,weight=weight)
-
+        sem = current_semester()
+        if sem is None:
+            return render_template('backdoor.html', error='no active semester set',programs=program.query.all(), courses=courses.query.all())
+        
+        newexam = exams(course_code=course_id, name=exam_name, date=date_obj,weight=weight, semester_id=sem.id)
         if not courses.query.get(course_id):
             return render_template('backdoor.html',error='invalid course',programs=program.query.all(),courses=courses.query.all())
         if not weight_ok(course_id, weight):
@@ -399,6 +450,28 @@ def addprereq():
     except Exception:
         db.session.rollback()
         return render_template('backdoor.html', error='error adding prerequisite', programs=program.query.all(), courses=courses.query.all())
+@app.route('/addsemester',methods=['POST'])
+@staff_required
+def addsemester():
+    
+    name=request.form['name']
+    try:
+        new=semester(name=name)
+        db.session.add(new)
+        db.session.commit()
+        return redirect(url_for('semesters_page', added='semester'))
+    except Exception:
+        db.session.rollback()
+        return render_template('semesters.html', error='error adding semester',semesters=semester.query.all())
+
+@app.route('/semesters')
+@staff_required
+def semesters_page():
+    added = request.args.get('added')
+    all_semesters = semester.query.all()
+    return render_template('semesters.html', semesters=all_semesters, added=added)
+
+
 @app.route('/options')
 @student_required
 def options():
@@ -406,20 +479,25 @@ def options():
     return render_template('options.html', s_id=s_id)
 
 
-@app.route('/registering',methods=['GET'])
+@app.route('/registering', methods=['GET'])
 @student_required
 def registering():
-    s_id=session.get('student_id')
+    s_id = session.get('student_id')
+    sem = current_semester()
+    if sem is None:
+        return render_template('client.html', courses=[], no_semester=True)
     try:
-        me=student.query.get(s_id)
-        all_courses=courses.query.join(program_courses).filter(program_courses.program_id == me.program_id).all()
+        me = student.query.get(s_id)
+        all_courses = courses.query.join(program_courses).filter(
+            program_courses.program_id == me.program_id).all()
 
-        my_reg = registered.query.filter_by(student_id=s_id).all()
-        registered_codes = [r.course_code for r in my_reg if r.grade is None]   
-        completed_codes  = [r.course_code for r in my_reg if r.grade is not None] 
-        allowed = [c for c in all_courses if c.code not in completed_codes and meets_prereqs(s_id, c.code)]
-        return render_template('client.html',courses=allowed,s_id=s_id,registered_codes=registered_codes)
-    except:
+        this_sem_codes = [r.course_code for r in registered.query.filter_by(
+            student_id=s_id, semester_id=sem.id).all() if r.grade is None]
+
+        allowed = [c for c in all_courses if can_register(s_id, c.code) and meets_prereqs(s_id, c.code)]
+        return render_template('client.html', courses=allowed, s_id=s_id, registered_codes=this_sem_codes)
+    except Exception as e:
+        print(e)
         return 'error'
 @app.route('/mycourses')
 @student_required
@@ -435,9 +513,14 @@ def my_courses():
 @student_required
 def dashboard():
     s_id=session.get('student_id')
-    course_codes=[r.course_code for r in registered.query.filter_by(student_id=s_id).all()]
-    student_exams= exams.query.filter(exams.course_code.in_(course_codes)).all()
-    student_assignments=assignments.query.filter(assignments.course_code.in_(course_codes)).all()
+    sem=current_semester()
+    if sem is None:
+        return render_template('dashboard.html', upcoming_exams=[], upcoming_assignments=[],awaiting_exams=[], awaiting_assignments=[],graded_exams=[], graded_assignments=[], no_semester=True)
+    
+    
+    course_codes=[r.course_code for r in registered.query.filter_by(student_id=s_id, semester_id=sem.id).all()]
+    student_exams= exams.query.filter(exams.course_code.in_(course_codes),exams.semester_id == sem.id).all()
+    student_assignments=assignments.query.filter(assignments.course_code.in_(course_codes),assignments.semester_id == sem.id).all()
     course_lookup = {c.code: c.name for c in courses.query.filter(courses.code.in_(course_codes)).all()}
     exam_grade_lookup = {g.exam_id: g.grade for g in exam_grades.query.filter_by(student_id=s_id).all()}
     assign_grade_lookup = {g.assignment_id: g.grade for g in assignment_grades.query.filter_by(student_id=s_id).all()}
@@ -533,7 +616,18 @@ def course_detail(code):
     total = sum(e.weight for e in c_exams) + sum(a.weight for a in c_assignments)
     return render_template('coursedetail.html', course=course,exams=c_exams, assignments=c_assignments,total_weight=total, complete=(total == 100))
 
-
+@app.route('/setsemester/<int:sem_id>', methods=['POST'])
+@staff_required
+def set_semester(sem_id):
+    
+    for s in semester.query.all():
+        s.is_active = False
+    target = semester.query.get(sem_id)
+    if not target:
+        return 'no such semester', 404
+    target.is_active = True
+    db.session.commit()
+    return redirect(url_for('semesters_page', added='semester activated'))
 
 if __name__=="__main__":
 
