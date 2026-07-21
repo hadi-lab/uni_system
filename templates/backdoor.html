@@ -52,13 +52,10 @@
 
             <label for="a_name">Name</label>
             <input type="text" name="name" id="a_name" required>
-
-            <label for="a_id">Assignment id</label>
-            <input type="text" name="assignmentid" id="a_id" required>
-
             <label for="a_date">Date</label>
             <input type="date" name="date" id="a_date" required>
-
+            <label for="a_weight">Weight (%)</label>
+            <input type="number" name="weight" id="a_weight" min="0" max="100" required>
             <button type="submit">add assignment</button>
         </form>
     </div>
@@ -75,22 +72,16 @@
 
             <label for="e_name">Name</label>
             <input type="text" name="name" id="e_name" required>
-
-            <label for="e_id">Exam id</label>
-            <input type="text" name="examid" id="e_id" required>
-
             <label for="e_date">Date</label>
             <input type="date" name="date" id="e_date" required>
-
+            <label for="e_weight">Weight (%)</label>
+            <input type="number" name="weight" id="e_weight" min="0" max="100" required>
             <button type="submit">add exam</button>
         </form>
     </div>
 
     <div id="programform" class="form-card" style="display:none;">
         <form action="/addprogram" method="post">
-            <label for="p_id">Program id</label>
-            <input type="text" name="programid" id="p_id" required>
-
             <label for="p_name">Program name</label>
             <input type="text" name="name" id="p_name" required>
 
@@ -124,11 +115,8 @@
 
 <script>
     function showForm(id, btn) {
-        // hide all form cards
         document.querySelectorAll('.form-card').forEach(f => f.style.display = 'none');
-        // show the chosen one
         document.getElementById(id).style.display = 'block';
-        // update active tab
         document.querySelectorAll('.tab-bar button').forEach(b => b.classList.remove('active'));
         btn.classList.add('active');
     }

@@ -25,10 +25,14 @@
                 <select name="item" id="item" form="gradeform" required>
                     <option value=""> -- select -- </option>
                     {% for a in items_assignments %}
-                        <option value="assignment:{{ a.assignment_id }}">{{ a.name }}</option>
+                        <option value="assignment:{{ a.assignment_id }}">
+                            {{ a.name }}{% if a.assignment_id in graded_assignment_ids %} (graded){% endif %}
+                        </option>
                     {% endfor %}
                     {% for e in items_exams %}
-                        <option value="exam:{{ e.exam_id }}">{{ e.name }}</option>
+                        <option value="exam:{{ e.exam_id }}">
+                            {{ e.name }}{% if e.exam_id in graded_exam_ids %} (graded){% endif %}
+                        </option>
                     {% endfor %}
                 </select>
             </div>
@@ -59,4 +63,18 @@
         </div>
     </div>
 </div>
+<script>
+    const allGrades = {{ all_grades | tojson }};
+
+    const itemSelect = document.getElementById('item');
+    if (itemSelect) {
+        itemSelect.addEventListener('change', function() {
+            const grades = allGrades[this.value] || {};
+            document.querySelectorAll('.grade-input').forEach(input => {
+                const sid = input.name.replace('grade_', '');
+                input.value = (grades[sid] !== undefined) ? grades[sid] : '';
+            });
+        });
+    }
+</script>
 {% endblock %}

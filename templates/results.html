@@ -1,28 +1,44 @@
 {% extends "base.html" %}
 {% block content %}
-<h2>Course results</h2>
-<table>
-    <thead>
-        <tr><th>course</th> <th>grade</th> <th>result</th></tr>
-    </thead>
-    <tbody>
-    {% for item in results %}
-        <tr>
-            <td>{{ item.course }}</td>
-            <td>{{ item.grade if item.grade is not none else 'in progress' }}</td>
-            <td>
-                {% if item.grade is none %}
-                    <span class="badge pending">in progress</span>
-                {% elif item.passed %}
-                    <span class="badge pass">PASS</span>
-                {% else %}
-                    <span class="badge fail">FAIL</span>
-                {% endif %}
-            </td>
-        </tr>
-    {% else %}
-        <tr><td colspan="3">no results yet</td></tr>
-    {% endfor %}
-    </tbody>
-</table>
+<div class="results-page">
+    <h1>My Courses</h1>
+
+    <h2>In progress</h2>
+    <table>
+        <thead>
+            <tr><th>course</th></tr>
+        </thead>
+        <tbody>
+        {% for item in in_progress %}
+            <tr><td>{{ item.course }}</td></tr>
+        {% else %}
+            <tr><td>no courses in progress</td></tr>
+        {% endfor %}
+        </tbody>
+    </table>
+
+    <h2>Completed</h2>
+    <table>
+        <thead>
+            <tr><th>course</th> <th>grade</th> <th>result</th></tr>
+        </thead>
+        <tbody>
+        {% for item in results %}
+            <tr>
+                <td>{{ item.course }}</td>
+                <td>{{ item.grade }}</td>
+                <td>
+                    {% if item.passed %}
+                        <span class="badge pass">PASS</span>
+                    {% else %}
+                        <span class="badge fail">FAIL</span>
+                    {% endif %}
+                </td>
+            </tr>
+        {% else %}
+            <tr><td colspan="3">no completed courses yet</td></tr>
+        {% endfor %}
+        </tbody>
+    </table>
+</div>
 {% endblock %}

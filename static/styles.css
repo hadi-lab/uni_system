@@ -294,3 +294,78 @@ button, input, select {
     font-family: inherit;
     cursor: pointer;
 }
+.results-page { max-width: 700px; margin: 40px auto; }
+.results-page h1 { color: var(--navy); text-align: left;}
+.results-page h2 { color: var(--navy); margin-top: 32px; margin-bottom: 12px; }
+.topnav {
+    display: flex;
+    justify-content: space-between;
+    padding: 12px 24px;
+    background: white;
+    box-shadow: 0 1px 4px rgba(0,0,0,0.06);
+    margin-bottom: 20px;
+}
+.topnav a { text-decoration: none; color: var(--navy); font-weight: 600; }
+.topnav a:hover { color: var(--teal); }
+.profile-page { max-width: 480px; margin: 40px auto; }
+
+.profile-card {
+    background: white;
+    border-radius: 12px;
+    padding: 36px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+    text-align: center;
+}
+
+.avatar {
+    width: 72px; height: 72px;
+    border-radius: 50%;
+    background: var(--teal);
+    color: white;
+    font-size: 1.6em;
+    font-weight: bold;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin: 0 auto 16px;
+    text-transform: uppercase;
+}
+
+.profile-card h1 { color: var(--navy); margin: 0 0 24px; }
+
+.profile-field {
+    display: flex;
+    justify-content: space-between;
+    padding: 12px 0;
+    border-bottom: 1px solid #eef3f4;
+    text-align: left;
+}
+.profile-field:last-child { border-bottom: none; }
+
+.field-label { color: #778; font-size: 0.9em; }
+.field-value { color: var(--navy); font-weight: 600; }
+.detail-page { max-width: 700px; margin: 40px auto; }
+.detail-page h1 { color: var(--navy); }
+.detail-page h2 { color: var(--navy); margin-top: 28px; }
+
+.back-link { color: var(--teal); text-decoration: none; font-size: 0.9em; }
+.back-link:hover { text-decoration: underline; }
+
+.weight-status { font-weight: 600; }
+.weight-status.ok { color: var(--green); }
+.weight-status.warn { color: var(--red); }
+.hub-cards { max-width: 900px; margin: 0 auto; }
+.overview #search {
+    padding: 10px 14px;
+    border: 1.5px solid #ccd4d6;
+    border-radius: 8px;
+    font-family: inherit;
+    font-size: 0.95em;
+    width: 280px;
+    margin-bottom: 20px;
+    background: white;
+}
+.overview #search:focus {
+    outline: none;
+    border-color: var(--teal);
+}

@@ -1,0 +1,40 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="overview">
+    <h1>Courses Overview</h1>
+
+    <input type="text" id="search" placeholder="Search courses..." onkeyup="filterCourses()">
+
+    <table id="coursetable">
+        <thead>
+            <tr><th>course</th> <th>code</th> <th>weight</th> <th>status</th> <th></th></tr>
+        </thead>
+        <tbody>
+        {% for c in summary %}
+        <tr>
+            <td>{{ c.course }}</td>
+            <td>{{ c.code }}</td>
+            <td>{{ c.total_weight }}%</td>
+            <td>
+                {% if c.complete %}<span class="badge pass">complete</span>
+                {% else %}<span class="badge fail">incomplete</span>{% endif %}
+            </td>
+            <td><a href="/coursedetail/{{ c.code }}">view</a></td>
+        </tr>
+        {% endfor %}
+        </tbody>
+    </table>
+</div>
+
+<script>
+function filterCourses() {
+    const q = document.getElementById('search').value.toLowerCase();
+    const rows = document.querySelectorAll('#coursetable tbody tr');
+    rows.forEach(row => {
+        const name = row.cells[0].textContent.toLowerCase();
+        const code = row.cells[1].textContent.toLowerCase();
+        row.style.display = (name.includes(q) || code.includes(q)) ? '' : 'none';
+    });
+}
+</script>
+{% endblock %}

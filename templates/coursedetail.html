@@ -1,0 +1,39 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="detail-page">
+    <a href="/coursesoverview" class="back-link">← back to overview</a>
+
+    <h1>{{ course.name }} ({{ course.code }})</h1>
+    <p class="weight-status {{ 'ok' if complete else 'warn' }}">
+        Total weight: {{ total_weight }}%{% if not complete %} — incomplete, {{ 100 - total_weight }}% unassigned{% endif %}
+    </p>
+
+    <h2>Exams</h2>
+    <table>
+        <thead>
+            <tr><th>name</th> <th>date</th> <th>weight</th></tr>
+        </thead>
+        <tbody>
+        {% for e in exams %}
+            <tr><td>{{ e.name }}</td> <td>{{ e.date }}</td> <td>{{ e.weight }}%</td></tr>
+        {% else %}
+            <tr><td colspan="3">no exams</td></tr>
+        {% endfor %}
+        </tbody>
+    </table>
+
+    <h2>Assignments</h2>
+    <table>
+        <thead>
+            <tr><th>name</th> <th>date</th> <th>weight</th></tr>
+        </thead>
+        <tbody>
+        {% for a in assignments %}
+            <tr><td>{{ a.name }}</td> <td>{{ a.date }}</td> <td>{{ a.weight }}%</td></tr>
+        {% else %}
+            <tr><td colspan="3">no assignments</td></tr>
+        {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endblock %}

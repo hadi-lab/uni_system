@@ -36,12 +36,13 @@ class exams(db.Model):
     course_code = db.Column(db.Integer, db.ForeignKey('courses.code'),nullable=False)
     date=db.Column(db.Date,nullable=False)
     name = db.Column(db.String(200))
+    weight=db.Column(db.Integer,nullable=False)
 class assignments(db.Model):
     assignment_id=db.Column(db.Integer,primary_key=True)
     course_code = db.Column(db.Integer, db.ForeignKey('courses.code'),nullable=False)
     name = db.Column(db.String(200))
     date = db.Column(db.Date, nullable=False)
-    
+    weight=db.Column(db.Integer,nullable=False)
 class program(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String(200))
@@ -63,6 +64,14 @@ class prerequisites(db.Model):
     course_code = db.Column(db.Integer, db.ForeignKey('courses.code'), primary_key=True)
     required_course = db.Column(db.Integer, db.ForeignKey('courses.code'), primary_key=True)
     
+def weight_ok(coursecode, new_weight):
+    total = 0
+    for e in exams.query.filter_by(course_code=coursecode).all():
+        total += e.weight
+    for a in assignments.query.filter_by(course_code=coursecode).all():
+        total += a.weight
+    return total + int(new_weight) <= 100
+
 def in_program(s_id, coursecode):
     me = student.query.get(s_id)
     return program_courses.query.filter_by(program_id=me.program_id, course_code=coursecode).first() is not None
@@ -117,6 +126,10 @@ def password_ok(pw):
 
 @app.route('/login',methods=['GET','POST'])
 def login():
+    if session.get('student_id'):
+        return redirect(url_for('options'))
+    if session.get('is_staff'):
+        return redirect(url_for('staff_entry'))
     if request.method=='POST':
         found=student.query.filter_by(email=request.form['email']).first()
         if found and check_password_hash(found.password_hash,request.form['password']):
@@ -212,15 +225,32 @@ def gradingpage():
     all_courses=courses.query.all()
     chosen=request.values.get('course_code')
     roster=None
-    item=None
     items_exams=None
     items_assignments=None
+    graded_exam_ids=set()          
+    graded_assignment_ids=set() 
+    all_grades = {}
     if chosen:
         student_ids=[r.student_id for r in registered.query.filter_by(course_code=chosen).all()]
         roster=student.query.filter(student.id.in_(student_ids)).all()
         items_exams=exams.query.filter_by(course_code=chosen).all()
         items_assignments=assignments.query.filter_by(course_code=chosen).all()
-    return render_template('gradingpage.html', courses=all_courses, chosen=chosen,roster=roster, items_exams=items_exams, items_assignments=items_assignments)
+        for e in items_exams:
+            all_grades[f'exam:{e.exam_id}'] = {
+                g.student_id: g.grade
+                for g in exam_grades.query.filter_by(exam_id=e.exam_id).all()
+            }
+        for a in items_assignments:
+            all_grades[f'assignment:{a.assignment_id}'] = {
+                g.student_id: g.grade
+                for g in assignment_grades.query.filter_by(assignment_id=a.assignment_id).all()
+            }
+
+        exam_ids = [e.exam_id for e in items_exams]
+        assignment_ids = [a.assignment_id for a in items_assignments]
+        graded_exam_ids = {g.exam_id for g in exam_grades.query.filter(exam_grades.exam_id.in_(exam_ids)).all()}
+        graded_assignment_ids = {g.assignment_id for g in assignment_grades.query.filter(assignment_grades.assignment_id.in_(assignment_ids)).all()}
+    return render_template('gradingpage.html', courses=all_courses, chosen=chosen,roster=roster, items_exams=items_exams, items_assignments=items_assignments,graded_exam_ids=graded_exam_ids,graded_assignment_ids=graded_assignment_ids,all_grades=all_grades)
 @app.route('/gradeitem',methods=['POST'])
 @staff_required
 def grade_item():
@@ -297,18 +327,21 @@ def addassignment():
     
     if request.method=='POST':
         course_id=request.form['coursecode']
-        assignment_id=request.form['assignmentid']
         assignment_name=request.form['name']
         date=request.form['date']
+        weight=request.form['weight']
         date_obj = datetime.strptime(date, '%Y-%m-%d').date()
-        newassignment=assignments(course_code=course_id,assignment_id=assignment_id,date=date_obj,name=assignment_name)
+        newassignment=assignments(course_code=course_id,date=date_obj,name=assignment_name,weight=weight)
         if not courses.query.get(course_id):
             return render_template('backdoor.html',error='invalid course',programs=program.query.all(),courses=courses.query.all())
+        if not weight_ok(course_id, weight):
+            return render_template('backdoor.html', error='weights would exceed 100 for this course',programs=program.query.all(), courses=courses.query.all())
+        
         try:
             db.session.add(newassignment)
             db.session.commit()
             return redirect(url_for('backdoor', added='assignment'))
-        except:
+        except Exception:
             db.session.rollback()
             return 'error'
     return render_template('backdoor.html',programs=program.query.all(),courses=courses.query.all())
@@ -318,27 +351,32 @@ def addassignment():
 def addexam():
     if request.method=='POST':
         course_id=request.form['coursecode']
-        exam_id=request.form['examid']
         exam_name=request.form['name']
         date=request.form['date']
+        weight=request.form['weight']
         date_obj = datetime.strptime(date, '%Y-%m-%d').date()
-        newexam=exams(course_code=course_id,name=exam_name,exam_id=exam_id,date=date_obj)
+        newexam=exams(course_code=course_id,name=exam_name,date=date_obj,weight=weight)
+
         if not courses.query.get(course_id):
             return render_template('backdoor.html',error='invalid course',programs=program.query.all(),courses=courses.query.all())
+        if not weight_ok(course_id, weight):
+            return render_template('backdoor.html', error='weights would exceed 100 for this course',programs=program.query.all(), courses=courses.query.all())
         try:
             db.session.add(newexam)
             db.session.commit()
             return redirect(url_for('backdoor', added='exam'))
-        except:
+        except Exception:
             db.session.rollback()
             return 'error'
     return render_template('backdoor.html',programs=program.query.all(),courses=courses.query.all())
+
+
 @app.route('/addprogram',methods=['GET','POST'])
 def addprogram():
     if request.method=='POST':
         name=request.form['name']
-        id=request.form['programid']
-        new=program(id=id,name=name)
+        
+        new=program(name=name)
         try:
             db.session.add(new)
             db.session.commit()
@@ -376,11 +414,22 @@ def registering():
         me=student.query.get(s_id)
         all_courses=courses.query.join(program_courses).filter(program_courses.program_id == me.program_id).all()
 
-        registered_codes=[r.course_code for r in registered.query.filter_by(student_id=s_id).all()]
-        allowed = [c for c in all_courses if meets_prereqs(s_id, c.code)]
+        my_reg = registered.query.filter_by(student_id=s_id).all()
+        registered_codes = [r.course_code for r in my_reg if r.grade is None]   
+        completed_codes  = [r.course_code for r in my_reg if r.grade is not None] 
+        allowed = [c for c in all_courses if c.code not in completed_codes and meets_prereqs(s_id, c.code)]
         return render_template('client.html',courses=allowed,s_id=s_id,registered_codes=registered_codes)
     except:
         return 'error'
+@app.route('/mycourses')
+@student_required
+def my_courses():
+    s_id = session.get('student_id')
+    rows = registered.query.filter_by(student_id=s_id).all()
+    course_lookup = {c.code: c.name for c in courses.query.all()}
+    in_progress = [{'course': course_lookup[r.course_code]} for r in rows if r.grade is None]
+    completed   = [{'course': course_lookup[r.course_code], 'grade': r.grade,'passed': r.grade >= PASS_MARK} for r in rows if r.grade is not None]
+    return render_template('mycourses.html', in_progress=in_progress, completed=completed)
 
 @app.route('/dashboard')
 @student_required
@@ -437,8 +486,9 @@ def results():
     s_id = session.get('student_id')
     rows = registered.query.filter_by(student_id=s_id).all()
     course_lookup = {c.code: c.name for c in courses.query.all()}
-    results = [{'course': course_lookup[r.course_code],'grade': r.grade,'passed': r.grade is not None and r.grade >= PASS_MARK}for r in rows]
-    return render_template('results.html', results=results)
+    in_progress = [{'course': course_lookup[r.course_code]} for r in rows if r.grade is None]
+    results = [{'course': course_lookup[r.course_code], 'grade': r.grade, 'passed': r.grade >= PASS_MARK} for r in rows if r.grade is not None]
+    return render_template('results.html', results=results,in_progress=in_progress)
 
 
 @app.route('/staff-login',methods=['GET','POST'])
@@ -454,6 +504,34 @@ def staff_login():
             return render_template('staff-login.html', error='wrong password')
     return render_template('staff-login.html')
 
+@app.route('/profile')
+@student_required
+def profile():
+    s_id = session.get('student_id')
+    me = student.query.get(s_id)
+    program_name = program.query.get(me.program_id).name if me.program_id else None
+    return render_template('profile.html', student=me, program_name=program_name)
+
+@app.route('/coursesoverview')
+@staff_required
+def courses_overview():
+    all_courses = courses.query.all()
+    summary = []
+    for c in all_courses:
+        total = (sum(e.weight for e in exams.query.filter_by(course_code=c.code).all())+ sum(a.weight for a in assignments.query.filter_by(course_code=c.code).all()))
+        summary.append({'course': c.name, 'code': c.code,'total_weight': total, 'complete': total == 100})
+    return render_template('coursesoverview.html', summary=summary)
+
+@app.route('/coursedetail/<int:code>')
+@staff_required
+def course_detail(code):
+    course = courses.query.get(code)
+    if not course:
+        return 'no such course', 404
+    c_exams = exams.query.filter_by(course_code=code).all()
+    c_assignments = assignments.query.filter_by(course_code=code).all()
+    total = sum(e.weight for e in c_exams) + sum(a.weight for a in c_assignments)
+    return render_template('coursedetail.html', course=course,exams=c_exams, assignments=c_assignments,total_weight=total, complete=(total == 100))
 
 
 

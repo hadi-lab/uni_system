@@ -1,0 +1,23 @@
+{% extends "base.html" %}
+{% block content %}
+<h2>currently in</h2>
+<table>
+    
+    <thead> <tr> <th>course</th></tr> </thead>
+    {% for course in in_progress %}
+    <tbody> <tr> <td>{{ course.code }}</td></tr></tbody>
+    {% endfor %}
+
+    
+</table>
+<h2>completed</h2>
+<table>
+    
+    <thead> <tr> <th>course</th></tr> </thead>
+    {% for course in completed %}
+    <tbody> <tr> <td>{{ course.code }}</td></tr></tbody>
+    {% endfor %}
+
+    
+</table>
+{% endblock %}

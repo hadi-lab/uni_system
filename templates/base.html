@@ -7,6 +7,25 @@
     <title>{% block title %}University System{% endblock %}</title>
 </head>
 <body>
+    
+    {% if session.get('student_id') %}
+    <nav class="topnav">
+        {% if request.endpoint != 'options' %}
+        <a href="/options">← Home</a>
+        {% endif %}
+        {% if request.endpoint != 'profile' %}
+            <a href="/profile">Profile</a>
+        {% endif %}
+        <a href="/logout">Log out</a>
+    </nav>
+    {% elif session.get('is_staff') %}
+    <nav class="topnav">
+        {% if request.endpoint != 'staff_entry' %}
+            <a href="/staff_entry">← Home</a>
+        {% endif %}
+        <a href="/logout">Log out</a>
+    </nav>
+    {% endif %}
     {% block content %}{% endblock %}
 </body>
 </html>

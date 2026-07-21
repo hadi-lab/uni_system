@@ -1,0 +1,22 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="profile-page">
+    <div class="profile-card">
+        <div class="avatar">{{ student.fname[0] }}{{ student.lname[0] }}</div>
+        <h1>{{ student.fname }} {{ student.lname }}</h1>
+
+        <div class="profile-field">
+            <span class="field-label">Email</span>
+            <span class="field-value">{{ student.email }}</span>
+        </div>
+        <div class="profile-field">
+            <span class="field-label">Program</span>
+            <span class="field-value">{{ program_name }}</span>
+        </div>
+        <div class="profile-field">
+            <span class="field-label">Student ID</span>
+            <span class="field-value">{{ student.id }}</span>
+        </div>
+    </div>
+</div>
+{% endblock %}
