@@ -141,11 +141,14 @@ def compute_course_results(s_id, coursecode, semester_id):
     
 def meets_prereqs(s_id,coursecode):
     required_courses=prerequisites.query.filter_by(course_code=coursecode).all()
-    for r in required_courses:
+    for r in required_courses:  
         a=r.required_course
         k=registered.query.filter_by(student_id=s_id,course_code=a).first()
-        if k is None or k.grade is None or k.grade < PASS_MARK:
+        records = registered.query.filter_by(student_id=s_id, course_code=a).all()
+        passed = any(k.grade is not None and k.grade >= PASS_MARK for k in records)
+        if not passed:
             return False
+        
     return True        
 def password_ok(pw):
     if len(pw) < 8:
@@ -286,6 +289,48 @@ def gradingpage():
         graded_exam_ids = {g.exam_id for g in exam_grades.query.filter(exam_grades.exam_id.in_(exam_ids)).all()}
         graded_assignment_ids = {g.assignment_id for g in assignment_grades.query.filter(assignment_grades.assignment_id.in_(assignment_ids)).all()}
     return render_template('gradingpage.html', courses=all_courses, chosen=chosen,roster=roster, items_exams=items_exams, items_assignments=items_assignments,graded_exam_ids=graded_exam_ids,graded_assignment_ids=graded_assignment_ids,all_grades=all_grades)
+
+@app.route('/gradingpage', methods=['GET',"POST"])
+@staff_required
+def gradingpage():
+    all_courses=courses.query.all()
+    chosen=request.values.get('course_code')
+    sem=current_semester()
+    roster=None
+    items_exams=None
+    items_assignments=None
+    graded_exam_ids=set()
+    graded_assignment_ids=set()
+    all_grades = {}
+
+    if chosen and sem is not None:
+        student_ids=[r.student_id for r in registered.query.filter_by(course_code=chosen, semester_id=sem.id).all()]
+        roster=student.query.filter(student.id.in_(student_ids)).all()
+
+        items_exams=exams.query.filter_by(course_code=chosen, semester_id=sem.id).all()
+        items_assignments=assignments.query.filter_by(course_code=chosen, semester_id=sem.id).all()
+
+        for e in items_exams:
+            all_grades[f'exam:{e.exam_id}'] = {
+                g.student_id: g.grade
+                for g in exam_grades.query.filter_by(exam_id=e.exam_id).all()
+            }
+        for a in items_assignments:
+            all_grades[f'assignment:{a.assignment_id}'] = {
+                g.student_id: g.grade
+                for g in assignment_grades.query.filter_by(assignment_id=a.assignment_id).all()
+            }
+
+        exam_ids = [e.exam_id for e in items_exams]
+        assignment_ids = [a.assignment_id for a in items_assignments]
+        graded_exam_ids = {g.exam_id for g in exam_grades.query.filter(exam_grades.exam_id.in_(exam_ids)).all()}
+        graded_assignment_ids = {g.assignment_id for g in assignment_grades.query.filter(assignment_grades.assignment_id.in_(assignment_ids)).all()}
+
+    return render_template('gradingpage.html', courses=all_courses, chosen=chosen, sem=sem,roster=roster, items_exams=items_exams, items_assignments=items_assignments,graded_exam_ids=graded_exam_ids, graded_assignment_ids=graded_assignment_ids,all_grades=all_grades)
+
+
+
+
 @app.route('/gradeitem',methods=['POST'])
 @staff_required
 def grade_item():
@@ -502,6 +547,8 @@ def registering():
 @app.route('/mycourses')
 @student_required
 def my_courses():
+    sem=current_semester()
+    
     s_id = session.get('student_id')
     rows = registered.query.filter_by(student_id=s_id).all()
     course_lookup = {c.code: c.name for c in courses.query.all()}
@@ -569,10 +616,17 @@ def results():
     s_id = session.get('student_id')
     rows = registered.query.filter_by(student_id=s_id).all()
     course_lookup = {c.code: c.name for c in courses.query.all()}
-    in_progress = [{'course': course_lookup[r.course_code]} for r in rows if r.grade is None]
-    results = [{'course': course_lookup[r.course_code], 'grade': r.grade, 'passed': r.grade >= PASS_MARK} for r in rows if r.grade is not None]
-    return render_template('results.html', results=results,in_progress=in_progress)
+    semester_lookup = {s.id: s.name for s in semester.query.all()}
 
+    by_semester = {}
+    for r in rows:
+        sem_name = semester_lookup.get(r.semester_id, 'Unknown')
+        by_semester.setdefault(sem_name, []).append({
+            'course': course_lookup.get(r.course_code, 'unknown'),
+            'grade': r.grade,
+            'status': ('in progress' if r.grade is None else ('passed' if r.grade >= PASS_MARK else 'failed'))})
+
+    return render_template('results.html', by_semester=by_semester)
 
 @app.route('/staff-login',methods=['GET','POST'])
 def staff_login():
@@ -598,23 +652,33 @@ def profile():
 @app.route('/coursesoverview')
 @staff_required
 def courses_overview():
+    sem = current_semester()
+    if sem is None:
+        return render_template('coursesoverview.html', summary=[], no_semester=True)
+
     all_courses = courses.query.all()
     summary = []
     for c in all_courses:
-        total = (sum(e.weight for e in exams.query.filter_by(course_code=c.code).all())+ sum(a.weight for a in assignments.query.filter_by(course_code=c.code).all()))
-        summary.append({'course': c.name, 'code': c.code,'total_weight': total, 'complete': total == 100})
-    return render_template('coursesoverview.html', summary=summary)
+        c_exams = exams.query.filter_by(course_code=c.code, semester_id=sem.id).all()
+        c_assignments = assignments.query.filter_by(course_code=c.code, semester_id=sem.id).all()
+        total = sum(e.weight for e in c_exams) + sum(a.weight for a in c_assignments)
+        summary.append({'course': c.name, 'code': c.code,'total_weight': total, 'complete': total == 100,'has_items': bool(c_exams or c_assignments)})
+    return render_template('coursesoverview.html', summary=summary, sem=sem)
 
 @app.route('/coursedetail/<int:code>')
 @staff_required
 def course_detail(code):
+    sem = current_semester()
+    if sem is None:
+        return 'no active semester', 400
     course = courses.query.get(code)
     if not course:
         return 'no such course', 404
-    c_exams = exams.query.filter_by(course_code=code).all()
-    c_assignments = assignments.query.filter_by(course_code=code).all()
+    c_exams = exams.query.filter_by(course_code=code, semester_id=sem.id).all()
+    c_assignments = assignments.query.filter_by(course_code=code, semester_id=sem.id).all()
     total = sum(e.weight for e in c_exams) + sum(a.weight for a in c_assignments)
-    return render_template('coursedetail.html', course=course,exams=c_exams, assignments=c_assignments,total_weight=total, complete=(total == 100))
+    return render_template('coursedetail.html', course=course, sem=sem,exams=c_exams, assignments=c_assignments,total_weight=total, complete=(total == 100))
+
 
 @app.route('/setsemester/<int:sem_id>', methods=['POST'])
 @staff_required

@@ -1,10 +1,10 @@
 {% extends "base.html" %}
 {% block content %}
 <div class="grading">
+    {% if sem %}<p>Grading for: {{ sem.name }}</p>{% endif %}
     <h1>Grade a course</h1>
 
     <div class="grading-layout">
-        <!-- narrow left column: controls -->
         <div class="grading-sidebar">
             <div class="form-card">
                 <form method="POST">
@@ -39,7 +39,6 @@
             {% endif %}
         </div>
 
-        <!-- wide right column: the roster -->
         <div class="grading-main">
             {% if chosen and roster %}
             <form method="post" action="/gradeitem" id="gradeform">

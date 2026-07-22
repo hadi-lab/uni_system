@@ -3,42 +3,32 @@
 <div class="results-page">
     <h1>My Courses</h1>
 
-    <h2>In progress</h2>
+    {% for sem_name, courses in by_semester.items() %}
+    <h2>{{ sem_name }}</h2>
     <table>
         <thead>
-            <tr><th>course</th></tr>
+            <tr><th>course</th> <th>grade</th> <th>status</th></tr>
         </thead>
         <tbody>
-        {% for item in in_progress %}
-            <tr><td>{{ item.course }}</td></tr>
-        {% else %}
-            <tr><td>no courses in progress</td></tr>
-        {% endfor %}
-        </tbody>
-    </table>
-
-    <h2>Completed</h2>
-    <table>
-        <thead>
-            <tr><th>course</th> <th>grade</th> <th>result</th></tr>
-        </thead>
-        <tbody>
-        {% for item in results %}
+        {% for item in courses %}
             <tr>
                 <td>{{ item.course }}</td>
-                <td>{{ item.grade }}</td>
+                <td>{{ item.grade if item.grade is not none else '—' }}</td>
                 <td>
-                    {% if item.passed %}
-                        <span class="badge pass">PASS</span>
+                    {% if item.status == 'passed' %}
+                        <span class="badge pass">passed</span>
+                    {% elif item.status == 'failed' %}
+                        <span class="badge fail">failed</span>
                     {% else %}
-                        <span class="badge fail">FAIL</span>
+                        <span class="badge pending">in progress</span>
                     {% endif %}
                 </td>
             </tr>
-        {% else %}
-            <tr><td colspan="3">no completed courses yet</td></tr>
         {% endfor %}
         </tbody>
     </table>
+    {% else %}
+        <p>You haven't taken any courses yet.</p>
+    {% endfor %}
 </div>
 {% endblock %}
