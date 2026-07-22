@@ -39,10 +39,19 @@
                     alert('already registered');
 
                 }
+                else if (data.includes('prerequisites')){
+                    alert('prerequisites not met for this course');
+                    }
+                else if (data.includes('full')){
+                    alert('this course is full');
+                    }
+                else if (data.includes('cannot register')){
+                    alert('you cannot register for this course');
+                }
                 else{
                     alert('registration failed');
+                    }
                 }
-            }
             )
         }
 
